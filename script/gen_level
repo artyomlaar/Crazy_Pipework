@@ -1,3 +1,4 @@
+#!/bin/bash
 dir="${2:-"$1".dir}"
 mkdir "$dir"
 pngtopnm "$1" | pnmflip -r270 | perl -e >"$dir/world.txt" '

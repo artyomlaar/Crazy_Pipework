@@ -12,7 +12,7 @@ from distutils.version import LooseVersion, StrictVersion
 ptrn1=re.compile(r'^pr:([^:]*):([^:]*):([^:]*)')
 ptrn2=re.compile(r'^ref')
 ptrn3=re.compile(r'^quit')
-ptrn4=re.compile(r'^clr')
+ptrn4=re.compile(r'^clear')
 ptrn5=re.compile(r'^prc:([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)$')
 ptrn6=re.compile(r'^spr:([^:]*):([^:]*):([^:]*)')
 ptrn7=re.compile(r'^mvs:([^:]*):([^:]*):([^:]*)')
@@ -457,11 +457,11 @@ while True:
 		if not win:
 			continue
 		line=int(line)
-		if line%2:
+		if line%2 == 0:	# Even
 			for x in range(len(data)):
 				bg = palette[name][int(prevline[x])]
 				fg = palette[name][int(data[x])]
-				scrout(win.window(), x, line/2, fg, bg, lowerhalf)
+				scrout(win.window(), x, line/2 - 1, fg, bg, lowerhalf)
 		else:
 			prevline=data
 	elif ptrn41.match(a):

@@ -1,3 +1,38 @@
 #!/bin/bash
 
-platform 
+STATE=/tmp/state
+
+print_log () {
+	sed s/^/out:printc:/ < ../../$logdir/user;
+}
+
+read_key () {
+	while read cmd
+	do
+		if [[ $cmd = user:key=q ]]
+		then
+			break 2
+		elif [[ $cmd = user:key* ]]
+		then
+			break
+		fi
+	done
+}
+
+show_error () {
+	echo out:print:`clear`error=$error;
+	read_key
+	print_log
+	read_key
+}
+
+while true;
+do
+	STATE=$STATE platform
+	error=$?
+	case $error in
+	0) rm $STATE; break ;;
+	1) continue ;;
+	*) show_error ;;
+	esac
+done

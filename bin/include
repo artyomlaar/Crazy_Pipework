@@ -52,13 +52,33 @@ read_key()
 	KEY="${KEY#user:key=}"
 }
 export -f read_key
+read_arrow()
+{
+	read_key &&
+	local mod_key=$1
+	if [ "_$KEY" = _D ]
+	then
+		CTRL_KEY="$mod_key+Left"
+	elif [ "_$KEY" = _A ]
+	then
+		CTRL_KEY="$mod_key+Up"
+	elif [ "_$KEY" = _B ]
+	then
+		CTRL_KEY="$mod_key+Down"
+	elif [ "_$KEY" = _C ]
+	then
+		CTRL_KEY="$mod_key+Right"
+	fi
+}
 
 CTRL_KEY=""
 
 read_ctrl_key()
 {
-	read_key && [ "$KEY" = "[" ] &&
-	read_key && {
+	read_key && 
+	if [ "$KEY" = "[" ]
+	then
+	read_key &&
 		if [ "_$KEY" = _A ]
 		then
 			CTRL_KEY="Up"
@@ -71,17 +91,40 @@ read_ctrl_key()
 		elif [ "_$KEY" = _C ]
 		then
 			CTRL_KEY="Right"
-		elif [ "_$KEY" = _H ]
+		elif [ "_$KEY" = _3 ]
+		then
+			read_key && [ "_$KEY" = _~ ] &&
+			CTRL_KEY="Delete"
+		elif [ "_$KEY" = _5 ]
+		then
+			read_key && [ "_$KEY" = _~ ] &&
+			CTRL_KEY="PageUp"
+		elif [ "_$KEY" = _6 ]
+		then
+			read_key && [ "_$KEY" = _~ ] &&
+			CTRL_KEY="PageDown"
+		elif [ "_$KEY" = _1 ]
+		then
+			read_key && [ "_$KEY" = "_;" ] && read_key &&
+			if [ "_$KEY" = _5 ]
+			then
+				read_arrow "Ctrl"
+			elif [ "_$KEY" = _3 ]
+			then
+				read_arrow "Alt"
+			fi
+		fi
+	elif [ "$KEY" = "O" ]
+	then
+	read_key &&
+		if [ "_$KEY" = _H ]
 		then
 			CTRL_KEY="Home"
 		elif [ "_$KEY" = _F ]
 		then
 			CTRL_KEY="End"
-		elif [ "_$KEY" = _3 ]
-		then
-			read_key && [ "_$KEY" = _~ ] && CTRL_KEY="Delete"
 		fi
-	}
+	fi
 }
 export -f read_ctrl_key
 

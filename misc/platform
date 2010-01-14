@@ -16,8 +16,11 @@ $tile_rows=8;
 $pixel_width=1/$tile_width;
 $pixel_height=1/$tile_height;
 
+$state_file = $ENV{STATE};
+
 $|++;
 $nscr=0;
+$num_objects = 0;
 
 $origsprs=88;
 
@@ -32,7 +35,6 @@ $,=", ";
 $vx=0;
 $vy=0;
 $inair=1;
-$nklop=0;
 
 $worldh=13;
 
@@ -41,23 +43,543 @@ $data_dir="data";
 sub draw_world;
 
 
+
+$object_created=0;
+sub print_pl_coord
+{
+	if (!$debuginfo) {
+		return;
+	}
+	print "curses:pr:";
+	print "posx=" . $player->{x};
+	print ", posy=" . $player->{y};
+	print ", nscrx=$nscr=" . nscr($player->{x});
+	print ", nscry=$nscry=" . nscry($player->{y});
+	print ", oth_scr=" . $other_scr->{x} . "," . $other_scr->{y};
+	print "          \n";
+	print "curses:ref\n";
+}
+
+sub print_dbg
+{
+	my $first=0;
+	print "curses:pr:";
+
+	for my $v (@_)
+	{
+		if ($first++) { print ", " }
+		print "$v=" . eval("\$$v");
+	}
+
+	print "          \ncurses:ref\n";
+}
+
+sub load_object
+{
+	$module = shift;
+	$module =~ s/[^A-Za-z:]//g;
+	eval("use $module");
+}
+
+sub obj_on_screen
+{
+	my $object = shift;
+	my $x = $object->{x};
+	my $y = $object->{y};
+	my $w = $object->{w};
+	my $h = $object->{h};
+
+	$x += $main::nscr;
+	#$y += $main::nscry;
+	if ( main::onscr ($x, $w) == $main::nscr and
+	     main::is_on_scr_y($y, $h, $main::nscry) ) {
+
+	     #main::onscry($y, $h) == $main::nscry) {
+		return 1;
+	} else {
+		return 0;
+	}
+}
+
+sub destroy_object	# NOT USED
+{
+        my $obj = shift;
+        @objects = grep {$_ != $obj} @objects;
+}
+
+sub destroy_object_id
+{
+        my $id = shift;
+	undef $objects[$id];
+}
+
+sub id_to_object
+{
+        my $id = shift;
+
+	for $obj (@objects) {
+		if ($obj->{id} == $id) {
+        		return $obj;
+		}
+	}
+} 
+
+sub get_objects_num
+{
+	return $num_objects;
+}
+
+sub load_modules
+{
+	push $mod_dir, @INC;
+
+	@mods = < $mod_dir/*.pm >;
+
+	$ln = q( for my $mod (@mods) {require $mod} );
+	jail->reval($ln);
+}
+
+sub save_all
+{
+        #push "player = " . $player->{id}, @result;
+        #push "num_objects = " . $num_objects, @result;
+        #for my $obj (@objects) {
+        #        my @vals = save_object $obj;
+        #        @result = ( @result, @vals );
+        #}
+
+	use Data::Dumper;
+
+	$result = Data::Dumper->Dump([\@objects], ["\*objects"]);
+	$result .= Data::Dumper->Dump([\%state], ["\*state"]);
+	$result .= Data::Dumper->Dump([$player->{id}], ["\*player_id"]);
+        open STATE, ">$state_file";
+        print STATE $result;
+        close STATE;
+}
+
+sub load_all
+{
+        open STATE, "<$state_file";
+        my $code = join " ", <STATE>;
+	$code =~ s/\n//g;
+        close STATE;
+	eval($code);
+	$player = id_to_object($player_id);
+}
+
+sub low_draw
+{
+	my $self = shift;
+	my ($x, $y);
+	my $sprite = $self->{sprite};
+
+	if (obj_on_screen($self)) {
+		if (!$self->{visible}) { $self->show }
+	} else {
+		if ($self->{visible}) { $self->hide }
+		return;
+	}
+
+	$x  = $self->left;
+	my $h = $self->{h};
+	my $ry = $self->{y};
+	$y  = $worldh * 0  - $self->top;
+
+	my $feet_on_top = (onscry($ry, $h) == $nscry);
+
+	my $x_shift = $nscr * (int $scrw);
+#	my $y_shift = $scrh * $nscry; 
+
+	$x-=$x_shift;
+#	$y-=$y_shift;
+
+	$y += 1;
+
+	# for - y's while drawing on screen (feet only)
+
+	if ($feet_on_top) {
+		$y += $self->{h};
+	}
+
+	$y -= $pixel_height;	# Always show sprite on its 'feet' screen.
+
+	$x *= $main::tile_width;
+	$y *= $main::tile_height;
+
+#	$x  = $x % ($scrw * $main::tile_width);
+	$y  = $y % ($scrh * $main::tile_height);
+
+	if ($feet_on_top) {
+		$y -= $self->{h} * $main::tile_height;
+	}
+
+	$y += 1;
+
+	print "curses:mvs2:$sprite:$x:$y\n";
+}
+
+package Player {
+sub new()
+{
+	my ($class, $x, $y) = @_;
+	my $self={};
+	bless($self, $class);
+
+	$self->{x}=$x;
+	$self->{y}=$y;
+	$self->{w}=1;
+	$self->{h}=2;
+	$self->{id} = main::get_objects_num();	#scalar @main::objects;
+	$self->{type}=$class;
+	$self->{visible}=1;
+	$self->{walkspeed}=@{$main::object{character}{walkspeed}}[0];
+	my $i=1;
+	for $s (@{$main::object{"character"}{"walk"}})
+	{
+		print "curses:newspr:character.walk.$i:" . $s . "\n";
+		print "curses:newspr:character.walk.$i.+1:" . $s . ".+1\n";
+		$i++;
+		print "mk loop\n";
+	}
+	return $self;
+}
+
+sub draw
+{
+	my $self = shift;
+
+	my $walk = $main::walk/2 % 3 + 1;
+	$self->{sprite} = "character.walk.$walk"; 
+	$self->hideall();
+	print "curses:show:$sprite\n";
+	main::low_draw($self);
+}
+
+sub hi()
+{
+	my $self = shift;
+	print "clas s debug hi\n";
+}
+
+sub hideall
+{
+	my $self = shift;
+	print "curses:hide:character.walk.1\n";
+	print "curses:hide:character.walk.2\n";
+	print "curses:hide:character.walk.3\n";
+	print "curses:hide:character.walk.1.+1\n";
+	print "curses:hide:character.walk.2.+1\n";
+	print "curses:hide:character.walk.3.+1\n";
+}
+
+sub hide
+{
+	my $self = shift;
+	my $i=1;
+	$self->{visible}=0;
+	for $s (@{$main::object{"character"}{"walk"}})
+	{
+		print "curses:hide:character.walk.$i:" . $s . "\n";
+		print "curses:hide:character.walk.$i.+1:" . $s . ".+1\n";
+		$i++;
+	print "hide loop\n";
+	}
+}
+
+sub kill()
+{
+	my $self = shift;
+	$self->{y}=$worldh;
+	$self->{x}=3;
+	# You don't actually kill the player object.
+	# undef $main::objects[ $self->{id} ];
+}
+
+sub top
+{
+	my $self = shift;
+	return $self->{y} + $self->{h};
+}
+
+sub left
+{
+	my $self = shift;
+	return $self->{x};
+}
+
+sub bottom
+{
+
+}
+
+1;
+}
+
+
+package BrokenBrick {
+sub new
+{
+	my ($class, $x, $y) = @_;
+	my $self={};
+	bless($self, $class);
+	my $id = scalar @main::objects;
+	$self->{x}=$x;
+	$self->{y}=$y;
+	$self->{id}=$id;
+	$self->{vx}=.3;
+	$self->{vy}=.3;
+	$self->{alive}=1;
+	$self->{w}=1;
+	$self->{h}=1;
+	$self->{type}=$class;
+	$self->{id}=$id;
+	$id = $id % 4 + 1;	# Sprite names are 1 through 4.
+	$self->{sprite}="broken_brick_$id";
+	$self->{vx} *= ($id & 1) ? 1 : -1;
+	$self->{vy} *= ($id & 2) ? 1 : -1;
+	$self->{x} += 2 * $self->{vx};
+	$self->{y} += 2 * $self->{vy};
+
+	return $self;	
+}
+
+sub hide
+{
+	my $self = shift;
+	my $sprite = $self->{sprite};
+
+	$self->{visible}=0;
+	print "curses:hide:$sprite\n";
+}
+
+sub show
+{
+	my $self = shift;
+	my $sprite = $self->{sprite};
+
+	$self->{visible}=1;
+	print "curses:show:$sprite\n";
+}
+
+sub draw
+{
+	my $self = shift;
+
+	main::low_draw($self);
+	$main::repaint++;
+}
+
+sub update
+{
+	my $self = shift;
+	$self->{vy} -= $main::pixel_height;
+	$self->{y} += $self->{vy};
+	$self->{x} += $self->{vx};
+	$self->draw();
+	if ($self->{y} < 0) {
+		$self->kill();
+	}
+}
+
+sub kill
+{
+	my $self = shift;
+	$self->hide();
+	$self->{alive}=0;
+	# undef $main::objects[ $self->{id} ];
+	main::destroy_object($self);
+}
+	
+sub top
+{
+	my $self = shift;
+	return $self->{y} + $self->{h};
+}
+
+sub left
+{
+	my $self = shift;
+	return $self->{x};
+}
+
+
+1;
+}
+
+package Klop {
+sub new
+{
+	my ($class, $x, $y)=@_;
+	
+	my $self={};
+	bless($self, $class);
+
+	$self->{x}=$x;
+	$self->{y}=$y;
+	$self->{ox}=$x;
+	$self->{oy}=$y;
+	$self->{w}=1;
+	$self->{h}=1;
+	$self->{alive}=1;
+	$self->{visible}=0;
+	$self->{id} = scalar @main::objects;
+	#$self->{id}=scalar @main::klop;
+	$self->{type}=$class;
+	$self->{move}+=@{$main::object{"klop"}{"move"}}[0];
+
+	my $i=0;
+	for $s (@{$main::object{"klop"}{"walk"}})
+	{
+		print "curses:newspr:klop" . $self->{id} . ".walk.$i:" . $s 
+			. "\n";
+		$i++;
+		print "mkklop\n";
+	}
+	$self->hide();
+
+	return $self;
+}
+
+sub show
+{
+	print "show klop\n";
+	my $k=$_[0];
+	$k->{visible}=1;
+	print "curses:show:klop$k->{id}.walk.0\n";
+	print "curses:show:klop$k->{id}.walk.1\n";
+}
+
+sub hide
+{
+	print "hide klop\n";
+	my $self = shift;
+	$self->{visible}=0;
+	print "curses:hide:klop" . $self->{id} . ".walk.0\n";
+	print "curses:hide:klop" . $self->{id} . ".walk.1\n";
+	print "curses:hide:klop" . $self->{id} . ".walk.0.+1\n";
+	print "curses:hide:klop" . $self->{id} . ".walk.1.+1\n";
+	print "curses:ref\n";
+}
+
+sub kill
+{
+	print "kill klop\n";
+	my $self = shift;
+	$self->hide();
+	$self->{alive}=0;
+	# undef $main::objects[ $self->{id} ];
+	main::destroy_object($self);
+}
+
+sub draw
+{
+	print "draw klop\n";
+	my $self = shift;
+
+	if ($self->{visible}) {
+	my $num_walk=@{$main::object{"klop"}{"walk"}};
+	my $walk=( $main::tile_width * $self->{x} ) % $num_walk;
+
+	for (my $nwalk=0; $nwalk<@{$main::object{"klop"}{"walk"}}; $nwalk++) {
+		if ($nwalk==$walk) {
+			print "curses:show:klop" . $self->{id} . ".walk.$nwalk\n";
+		} else {
+			print "curses:hide:klop" . $self->{id} . ".walk.$nwalk\n";
+			print "curses:hide:klop" . $self->{id} . ".walk.$nwalk.+1\n";
+		}
+print "paint klop\n";
+	}
+	$self->{sprite} = "klop" . $self->{id} . ".walk.$walk";
+	}
+	main::low_draw($self);
+
+	$main::repaint++;
+}
+
+sub top
+{
+	my $self = shift;
+	return $self->{y} + $self->{h};
+}
+
+sub left
+{
+	my $self = shift;
+	return $self->{x};
+}
+
+sub update
+{
+	print "update klop\n";
+	my $self = shift;
+	my $x=$self->{x};
+	my $y=$self->{y};
+	my $h=$self->{h};
+	my $w=$self->{w};
+
+	if ($x<-$w) { $self->kill(); return }
+	if ($y>$main::worldh) { $self->kill(); return }
+
+	my $nx=$x+$self->{move};
+	my $ny=$y-$main::pixel_height;
+
+
+	#if (main::can_move($nx, $y+$main::pixel_height-$h, $main::spr_w, $h-$main::pixel_height, True)) {
+	#if (main::can_move($nx, $y+$main::pixel_height, $main::spr_w, $h-$main::pixel_height, True)) {
+
+
+	if (main::can_move($nx, $y+$main::pixel_height, $self)) {
+		$self->{x}=$nx;
+	} else {
+		$self->{move} *= -1;
+		print "klop cant move: $x, $y while mario is at $a, $b\n";
+	}
+
+
+	#if (main::can_move($x, $ny+$main::pixel_height-$h, $main::spr_w, $h-$main::pixel_height, True)) {
+	#if (main::can_move($x, $ny+$main::pixel_height, $main::spr_w, $h-$main::pixel_height, True)) {
+
+
+	if (main::can_move($x, $ny+$main::pixel_height, $self)) {
+		$self->{y}=$ny;
+	}
+
+	print "Drawing klop: $x, $y\n";
+	$self->draw();	
+}
+1;
+}
+
 sub nscr
 {
 	my $x = $_[0];
-	return int ($x/($scrw+1));
+	return int ($x/$scrw);
+	#return int ($x/($scrw+1));
 }
 
 sub onscr
 {
 	my $x = $_[0];
 	my $w = $_[1];
+	#return int ($x/$scrw);
 	return int (($x+$w)/($scrw+1));
 }
 
+sub onscr2
+{
+	my $x = $_[0];
+	return int ($x/$scrw);
+}
 sub nscry
 {
 	my $y = $_[0];
-	return int (($y-2*$pixel_height)/($scrh));
+	return int (($y-1)/($scrh));
+	#return int (($y-1-$pixel_height)/($scrh)); # This fixes char spawn.
+	#return int (($y-1+$pixel_height)/($scrh));
+	#return int (($y-2*$pixel_height)/($scrh));
+	#return int (($y-1)/($scrh));
+	#return int (($y)/($scrh));
 	#return int ($y/($scrh));
 }
 
@@ -65,8 +587,32 @@ sub onscry
 {
 	my $y = $_[0];
 	my $h = $_[1];
-	#return int (($y)/($scrh));
-	return int ($y/($scrh + $h));
+	return int (($y-1)/($scrh));
+	#return int ($y/($scrh + $h));
+}
+
+sub onscry2
+{
+	my $y = $_[0];
+	return int (($y)/($scrh));
+}
+
+sub is_on_scr_y
+{
+	my ($y, $h, $scr_y) = @_;
+
+	my $scr_top = $scr_y * $scrh;
+	my $scr_bottom = $scr_top + $scrh;
+
+	my $spr_top = $y - $h;
+	my $spr_bottom = $y;
+
+	if ( $spr_top <= $scr_bottom and
+	     $spr_bottom >= $scr_top ) {
+		return 1;
+	} else {
+		return 0;
+	}
 }
 
 sub set_alarm()
@@ -80,21 +626,24 @@ sub unset_alarm()
 	Time::HiRes::ualarm(0);
 }
 
+sub load_screen
+{
+	my ($scr) = @_;
+
+	unset_alarm();
+	draw_world($scr->{x}, $scr->{y}, True);
+	set_alarm();
+}
+
 sub change_screen
 {
-	$onscr=$nscr;
-	$onscry=$nscry;
-	$nscr=nscr($a);
-	$nscry=nscry($b);
+	$onscr = $nscr;
+	$onscry = $nscry;
 
+	$nscr=nscr($player->{x});
+	$nscry=nscry($player->{y});
 
-	if ($nscr!=$onscr){
-		unset_alarm();
-		draw_world;
-		set_alarm();
-		return 1
-	}
-	if ($nscry!=$onscry){
+	if ($nscr!=$onscr or $nscry != $onscry){
 		unset_alarm();
 		draw_world;
 		set_alarm();
@@ -104,151 +653,17 @@ sub change_screen
 	return 0
 }
 
-sub mkklop
-{
-	my %k;
-	my $kx=$_[0];
-	my $ky=$_[1];
-	if ($state[$kx][$ky]) { return }
-	$k{x}=$kx;
-	$k{y}=$ky;
-	$k{ox}=$_[0];
-	$k{oy}=$_[1];
-	$k{w}=1;
-	$k{h}=1;
-	$k{alive}=1;
-	$k{visible}=1;
-	$k{id}=scalar @klop;
-	$k{move}+=@{$object{"klop"}{"move"}}[0];
-	$state[$kx][$ky]=1;
-
-	my $i=0;
-	for $s (@{$object{"klop"}{"walk"}})
-	{
-		print "curses:newspr:klop$k{id}.walk.$i:" . $s . "\n";
-		$i++;
-print "mkklop\n";
-	}
-
-	return \%k;
-}
-
-sub showklop
-{
-	my $k=$_[0];
-	$k->{visible}=1;
-	print "curses:show:klop$k->{id}.walk.0\n";
-	print "curses:show:klop$k->{id}.walk.1\n";
-}
-
-sub hideklop
-{
-	my $k=$_[0];
-	$k->{visible}=0;
-	print "curses:hide:klop$k->{id}.walk.0\n";
-	print "curses:hide:klop$k->{id}.walk.1\n";
-	print "curses:hide:klop$k->{id}.walk.0.+1\n";
-	print "curses:hide:klop$k->{id}.walk.1.+1\n";
-	print "curses:ref\n";
-}
-
-sub killklop
-{
-	my $k=$_[0];
-	hideklop $k;
-	$k->{alive}=0;
-}
-
-sub repaintklop
-{
-	my ($x, $y, $walk, $k) = @_;
-	for (my $nwalk=0; $nwalk<@{$object{"klop"}{"walk"}}; $nwalk++) {
-		if ($nwalk==$walk) {
-			print "curses:show:klop$k->{id}.walk.$nwalk\n";
-		} else {
-			print "curses:hide:klop$k->{id}.walk.$nwalk\n";
-			print "curses:hide:klop$k->{id}.walk.$nwalk.+1\n";
-		}
-print "paint klop\n";
-	}
-	$x-=$k->{w};
-	$x*=$tile_width;
-	$y*=$tile_height;
-	print "curses:mvs2:klop$k->{id}.walk.$walk:$x:$y\n";
-}
-
-sub drawklop
-{
-	my $k=$_[0];
-	my $hx=$k->{x}+$nscr;
-	my $hy=$k->{y}+$nscry;
-
-	if (onscr($hx, $k->{w})!=$nscr) {
-		if ($k->{visible}) { hideklop $k }
-		return;
-	} else {
-		if (!$k->{visible}) { showklop $k }
-	}
-
-	if (onscry($hy, $k->{h})!=$nscry) {
-		if ($k->{visible}) { hideklop $k }
-		return;
-	} else {
-		if (!$k->{visible}) { showklop $k }
-	}
-
-	my $nwalk=@{$object{"klop"}{"walk"}};
-	my $walkn=( $tile_width * $k->{x} ) % $nwalk;
-
-	repaintklop( (int(($hx + $k->{w}) * $tile_width) % ($tile_width * ($scrw + $k->{w})) ) / $tile_width, 
-	             (int($hy * $tile_height) % ($tile_height * ($scrh + $k->{h}))) / $tile_height,
-	             #int($k->{y})%($scrh+$k->{h}*2),
-	             $walkn,
-		     $k );
-
-	$repaint++;
-}
-
-sub mkcharacter
-{
-	$a=$_[0];
-	$b=$_[1];
-	$charactervisible=1;
-	$walkspeed=@{$object{character}{walkspeed}}[0];
-	my $i=1;
-	for $s (@{$object{"character"}{"walk"}})
-	{
-		print "curses:newspr:character.walk.$i:" . $s . "\n";
-		print "curses:newspr:character.walk.$i.+1:" . $s . ".+1\n";
-		$i++;
-print "mk loop\n";
-	}
-
-}
-sub hidecharacter
-{
-	my $i=1;
-	$charactervisible=0;
-	for $s (@{$object{"character"}{"walk"}})
-	{
-		print "curses:hide:character.walk.$i:" . $s . "\n";
-		print "curses:hide:character.walk.$i.+1:" . $s . ".+1\n";
-		$i++;
-print "hide loop\n";
-	}
-}
-
-sub killcharacter    #   ;_; 
-{
-	$b=0;
-}
-
 sub gettypes
 {
 	$k=$_[0];
 	@k2=split(/\s+/, $types3{$k});	
 	return @k2;
 }
+
+#TODO: ADD THESE IN CODE!!!
+#curses:hide:sprf
+#curses:progsprinc:load
+
 
 sub cat_file
 {
@@ -270,6 +685,11 @@ sub openconf
 	return @conf;
 }
 
+sub load_legend
+{
+
+}
+
 sub mkworld
 {
 	@script2=openconf("<$data_dir/script.txt");
@@ -287,7 +707,7 @@ sub mkworld
 
 	$logo[0] =~ /spr:logo:([^:]+):([^:]+)/;
 	my $lx=int (($tile_width * $scrw-$1)/2);
-	my $ly=int (($tile_height * $scrh-$2)/2);
+	my $ly=int (($tile_height * $scrh-2*$2)/2);
 	print "curses:mvs2:logo:$lx:$ly\n";
 	print "curses:ref\n";
 
@@ -325,18 +745,11 @@ sub mkworld
 			@{$conf{$1}{$2}}=split(/\s+/, $3);
 		}
 	}
+
+	cat_file("$data_dir/broken_brick.crs");		
 }
 
-sub checksquares
-{
-	my $objx=$_[0];
-	my $objy=$_[1];
-	my $objw=$_[2];
-	my $objh=$_[3];
-
-}
-
-sub chckptsqr
+sub check_sqr_pt
 {
 	my ($sx, $sy, $sex, $sey, $px, $py)=(@_);
 	if ( ($px>$sx && $px<$sex) && ($py>$sy && $py<$sey) ) {
@@ -346,13 +759,13 @@ sub chckptsqr
 	return 0;
 }
 
-sub sqrs_ist
+sub check_squares
 {
 	my ($sx, $sy, $ex, $ey, $sx2, $sy2, $ex2, $ey2)=(@_);
-	if ( chckptsqr($sx, $sy, $ex, $ey, $sx2, $sy2) ||
-	     chckptsqr($sx, $sy, $ex, $ey, $sx2, $ey2) ||
-	     chckptsqr($sx, $sy, $ex, $ey, $ex2, $sy2) ||
-	     chckptsqr($sx, $sy, $ex, $ey, $ex2, $ey2) ) {
+	if ( check_sqr_pt($sx, $sy, $ex, $ey, $sx2, $sy2) ||
+	     check_sqr_pt($sx, $sy, $ex, $ey, $sx2, $ey2) ||
+	     check_sqr_pt($sx, $sy, $ex, $ey, $ex2, $sy2) ||
+	     check_sqr_pt($sx, $sy, $ex, $ey, $ex2, $ey2) ) {
 		return 1;
 	}
 	else { return 0 }
@@ -360,45 +773,113 @@ sub sqrs_ist
 
 sub can_move
 {
-	my ($objx, $objy, $objw, $objh, $obj_is_klop) = @_;
+	my ($objx, $objy, $obj) = @_;
+	my $objw=$obj->{w};
+	my $objh=$obj->{h};
+	#my ($objx, $objy, $objw, $objh, $obj_is_klop) = @_;
+#	$objy-=1;
+#	return 1;
 	my $leftsqr=int($objx);
+
+	# This weird math is legit for bumping into things from the left.
 	my $rightsqr=int($objx + $objw - $pixel_width + 1);
+
 	my $topsqr=int($objy);
-	my $botsqr=int($objy + $objh - $pixel_height + 1);
-	($botsqr, $topsqr) = (12-$topsqr, 12-$botsqr);
+	my $botsqr=int($objy + $objh);
+	#my $botsqr=int($objy + $objh - $pixel_height);
+#	($botsqr, $topsqr) = (13-$topsqr, 13-$botsqr);
 	($botsqr, $topsqr) = ($topsqr, $botsqr);
+#	($botsqr, $topsqr) = ($topsqr, $botsqr);
+#	$topsqr -= $worldh;
+#	$botsqr -= $worldh;
 
 	for (my $i=$leftsqr; $i<$rightsqr; $i++) {
 		for (my $j=$botsqr; $j<=$topsqr; $j++) {
 			my $sqr=$world[$i][$j];
-			if ($sqr eq ""){ next }
-			if ($sqr ~~ @obst){ return 0 }
-print "can move 1\n";
+
+			if ($sqr eq "") { next 
+			} elsif ($sqr ~~ @obst) {
+				return 0;
+			} elsif ($sqr ~~ @brick) {
+
+				#my $plr_to_btm=$objy - $j -1;
+				#print "brick:j=$j; y=$objy dist=$plr_to_btm\n";
+				#if ($vy > 0 && $plr_to_btm < .5) {
+				#FIXME: This assumes p->{w} == brick->w == 1
+				#print "brick: i=$i; x=$objx dist=$plr_to_btm\n";
+				if ($vy > 0 and $obj->{type} eq "Player") {
+					$world[$i][$j]="\"";
+					my $x = $i + .5;
+					my $y = $j  + .5;
+					#my $y = 12 - $j  + .5;
+
+					for (my $i=0; $i<4; $i++) {
+						create_object($x, $y, 
+							"BrokenBrick");
+					}
+
+					#my $b = new BrokenBrick($x, $y);
+					#push @broken_brick, $b;
+					#$b = new BrokenBrick($x, $y);
+					#push @broken_brick, $b;
+					#$b = new BrokenBrick($x, $y);
+					#push @broken_brick, $b;
+					#$b = new BrokenBrick($x, $y);
+					#push @broken_brick, $b;
+
+					draw_world;
+					return 0;
+				} else {
+					return 0;
+				}
+				
+			} elsif ($sqr ~~ @box) {
+				if ($vy > 0 && !$obj_is_klop) {
+					#my $k = new Klop($i, $j + 1);
+					#push @klop, $k;
+					create_object($i, $j + 1, "Klop");
+					$world[$i][$j]="Z";
+					draw_world;
+				}
+				return 0;
+			} elsif ($sqr ~~ @one_way_wall) {
+				# This type may be used in the future. 
+				if ($vy<0) {
+					return 0;
+				}
+			}
+			print "can move 1\n";
 		}
 	}
 
-	if (!$obj_is_klop) {
+	#if (!$obj_is_klop) {
+
+	if ($obj->{type} eq "Player") {
 		my $oex=$objx + $objw;
 		my $oey=$objy + 2*$objh;
 		my $ox=$objx;
 		my $oy=$objy;
 
-		for my $k (@klop) {
+		#for my $k (@klop) {
+
+		for my $k (@objects) {
+			print "k=$k\n";
+			if ($k->{type} ne "Klop") { next }
 			if (!$k->{alive}) { next }
 
-print "can move 2 $a, $b\n";
+			print "can move 2 $a, $b\n";
 			my $kx=$k->{x};
 			my $ky=$k->{y};
 			my $kex=$kx + $k->{w};
 			my $key=$ky + $k->{h};
 
-			if ( sqrs_ist($ox, $oy, $oex, $oey,
+			if ( check_squares($ox, $oy, $oex, $oey,
 			              $kx, $ky, $kex, $key) ) {
 				if ($inair && $vy<0) {
-					killklop $k;
+					$k->kill;
 					$vy/=-2;
 				} else {
-					killcharacter;
+					$player->kill();
 				}
 			}
 		}
@@ -416,13 +897,13 @@ print "can move 2 $a, $b\n";
 			my $kex=$kx+$psprw;
 			my $key=$ky+$psprh;
 
-			if ( sqrs_ist($ox, $oy, $oex, $oey,
+			if ( check_squares($ox, $oy, $oex, $oey,
 			              $kx, $ky, $kex, $key) ) {
 				if ($inair && $vy<0) {
 					killklop $k;
 					$vy/=-2;
 				} else {
-					killcharacter;
+					$player->kill;
 				}
 			}
 		
@@ -431,20 +912,77 @@ print "can move 2 $a, $b\n";
 	return 1;
 }
 
-sub repaint;
+sub provide_screen
+{
+	my ($scr_a) = @_;
+	my $scr = $scr_a->{x} . "," . $scr_a->{y};
+	
+	# The game slows down when load_screen is called indiscriminately.
+	# This might mean there are leaks / unkilled objs updating.
+
+	if (not $scr ~~ @loaded_screens) {
+		load_screen($scr_a);
+		push @loaded_screens, $scr;
+	}
+}
+
+sub check_other_screens
+{
+	my ($x, $y, $w, $h) = @_;
+
+	my %r_scr;
+
+	$r_scr->{x} = $nscr;
+	$r_scr->{y} = $nscry;
+
+	my $ret_x;
+	my $ret_y;
+
+	my $scr_x_seft = onscr2($x);
+	my $scr_x_right = onscr2($x + $w);
+	my $scr_y_top = onscry2($y + $h);
+	my $scr_y_bottom = onscry2($y);
+
+	if ($scr_x_right > $nscr) {
+		$r_scr->{x} = $scr_x_right;
+		$ret_x = 1;
+	} elsif ($scr_x_seft < $nscr) {
+		$r_scr->{x} = $scr_x_seft;
+                $ret_x = 1;
+	}
+
+        if ($scr_y_bottom < $nscry) {
+                $r_scr->{y} = $scr_y_bottom;
+                $ret_y = 1;
+        } elsif ($scr_y_top > $nscry) {
+                $r_scr->{y} = $scr_y_top;
+                $ret_y = 1;
+        }
+
+	if ($ret_x or $ret_y) {
+		return $r_scr;
+	}
+}
 
 sub fast_fall
 {
 	my ($na, $nb) = @_;
 
-	$vy=-$pixel_height; 
-
+	# For falling down and bumping stones.
+	#$vy = ($vy<0) ? -$pixel_height : $pixel_height; 
+	$vy = -$pixel_height;
+	
 	while (True) {
-		$nb= $b-$vy;
+		$nb=$player->{y}+$vy;
 		print "fast fall loop $a, $b\n";
 
-		if (can_move($a-$spr_w-$nscr, $nb-$py_spr_h, $spr_w, $spr_h-$pixel_height)) {
-			$b=$nb;
+
+		#if (can_move($player->{x}-$spr_w-$nscr, $nb-$py_spr_h, $spr_w, $spr_h-$pixel_height)) {
+		#if (can_move($player->{x}, $nb, $spr_w, $spr_h-$pixel_height)) {
+
+
+		if (can_move($player->{x}, $nb, $player)) {
+			$player->{y}=$nb;
 			change_screen;
 			$sprmoved++;
 		}
@@ -458,158 +996,307 @@ sub fast_fall
 
 sub updmove
 {
-	my $na, $nb;
-
 	$vy-=$pixel_height; 
+
+	my $x = $player->{x};
+	my $y = $player->{y};
+	my $w = $spr_w;
+	my $h = $spr_h - $pixel_height;
+
+	$sprmoved++;
+
 	$rundec=@{$object{character}{walkstop}}[0];
+
 	if (!$inair) {
-		if ( $vx>$rundec ) { $vx-=$rundec }
-		elsif ( abs($vx)>$rundec ) { $vx+=$rundec }
-		else { $vx=0 }
+		if ($vx > $rundec) { 
+			$vx -= $rundec
+		} elsif (abs($vx) > $rundec) {
+			$vx += $rundec
+		} else {
+			$vx = 0
+		}
 	}
 
-	$na= $a+$vx;
-	$nb= $b-$vy;
+	my $nx = $x + $vx;
+	my $ny = $y + $vy;
+
+	$other_scr = check_other_screens($nx, $ny, $w, $h);
+
+	if ($other_scr) {
+		provide_screen($other_scr);
+	}
 
 	if ($vy) {
-		if (can_move($a-$spr_w-$nscr, $nb-$py_spr_h, $spr_w, $spr_h-$pixel_height)) {
-			$b=$nb;
+
+
+		#if (can_move($x, $ny, $w, $h)) {
+
+
+		if (can_move($x, $ny, $player)) {
+			$player->{y} = $ny;
 			change_screen;
 			$sprmoved++;
-			$inair=1;
+			$inair = 1;
 		}
 		else {
-			$vy=0;
+			#this var breaks the game
+			$vy = 0;
 			$inair &&
-				fast_fall($na,$nb);
+				fast_fall($nx, $ny);
 		}
 	}	
 
-	if ($vx) {
-		if (can_move($na-$spr_w-$nscr, $b-$py_spr_h, $spr_w, $spr_h-$pixel_height)) {
-			$a=$na;
-			$walk+=$vx>0?1:-1;
+	if (1 or $vx) {
+		#if (can_move($nx, $y, $w, $h)) {
+
+		if (can_move($nx, $y, $player)) {
+			$player->{x} = $nx;
+			$walk += ($vx > 0) ? 1 : -1;
 			change_screen;
 			$sprmoved++;
 		}	
 	}	
-	if ($a<$spr_w) { $a=$spr_w }
-	if ($b>$worldh) { killcharacter }
-	elsif ($b<0) { hidecharacter }
+	if ($player->{x} < $w) { $player->{x} = $w }
+	#if ($player->{y} > $worldh) { $player->kill }
+	if ($player->{y} < 0) { $player->kill }
+	elsif ($player->{y} > $worldh) { $player->hide }
 	else {
-		if (!$charactervisible) { $charactervisible=1 }
+		if (!$player->{visible}) { $player->{visible} = 1 }
 	}
 }
 
-sub updklop
+sub update_all_objects
 {
-	my $k=$_[0];
-	my $kx=$k->{x};
-	my $ky=$k->{y};
-	my $kh=$k->{h};
-	my $kw=$k->{w};
-	my $kw=$k->{w};
-
-	if ($kx<-$kw) { killklop $k; return }
-	if ($ky>$worldh) { killklop $k; return }
-
-	my $nkx=$kx+$k->{move};
-	my $nky=$ky+$pixel_height;
-
-	if (can_move($nkx, $ky+$pixel_height-$kh, $spr_w, $kh-$pixel_height, True)) {
-		$k->{x}=$nkx;
-	} else {
-		$k->{move} *= -1;
-		print "klop cant move: $kx, $ky while mario is at $a, $b\n";
+	for my $o (@objects) {
+		if ($o->{alive}) { 
+			$o->update();
+		}
 	}
+}
 
-	if (can_move($kx, $nky+$pixel_height-$kh, $spr_w, $kh-$pixel_height, True)) {
-		$k->{y}=$nky;
+sub update_all_klop
+{
+	for my $k (@klop) {
+		print "klop loop1\n";
+		if ($k->{alive}) { 
+			print "klop loop in:" . $k . " main upd:" .
+				 \&update . "klop upd:" .  "\n";
+
+			$k->update();
+		
+			print "klop loop ret\n";
+		}
+		print "klop loop\n";
 	}
+}
 
-	print "Drawing klop: $kx, $ky\n";
-	drawklop $k;	
+sub update_all_broken_brick
+{
+	for my $b (@broken_brick) {
+		if ($b->{alive}) { 
+			$b->update();
+		}
+	}
 }
 
 sub update
 {
-	for my $k (@klop) {
-		if ($k->{alive}) { updklop $k }
-		print "klop loop\n";
-	}
+	print "upd\n";
 
 	if (!$in_updmove) {
 		$in_updmove=1;
+		update_all_objects();
 		updmove;
 		$in_updmove=0;
 	}
 	if ($sprmoved) {
 		$sprmoved=0;
-		$charactervisible && repaint;
+		#$player->hi;
+		if ($object_created){
+			$player->{visible} && $player->draw();
+		}
 		$repaint=1;
 	}
 	if ($repaint) {
 		print "curses:ref\n";
 		$repaint=0;
 	}
+	print_pl_coord;
 	set_alarm();
 }
 
 sub load_world
 {
+	my ($i, $j);
 	$map_file=$ENV{MAP_FILE} // "$data_dir/w1-1.txt";
 	open(F, "<$map_file");
 	while (<F>) {
-		for (my $j=0; $j<15; $j++) {
+		for ($j=0; $j<15; $j++) {
 			$world[$i][$j]=substr $_, $j, 1;
 		}
 		$i++;
 	}
+	$world_w=$i; 
+	$world_h=$j; 
 	close F;
 }
+
 sub draw_square
 {
-	my ($i, $j) = @_;
-	my $sprtype=$world[$i][12-$j] ne "" ?
-		$world[$i][12-$j] : 
-		$world[0][0];
-	my $rx=$i;
-	my $sx=$i-$scrw*$nscr;
-	my $sy=$j-$scrh*$nscry;
-	#$sy=int($sy/2);
-	#$sy=int($sy/2);
-	$k=$sprtype;
-	for (@{$types4{$k}}) {
-		if ($_ eq "obst") { push @obst, $k }
-		if ($_ eq "klop") { push @klop, mkklop($rx, $sy+$scrh*$nscry)}
-		if ($_ eq "hide") { next }
-		if ($_ eq "player") { mkcharacter($rx+1, $sy+$scrh*$nscry) }
-	#	if (/show=(.+)/) { $sprtype=$1 } #FIXME 
-		if (/show=(.*)/) { $sprtype=$1 || " " }
-		print "type loop\n";
+	my ($x, $y, $spr_type) = @_;
+
+	my $scr_shift_x=int($scrw+$inter_scr_w) * $nscr ;
+	my $scr_shift_y=int($scrh+$inter_scr_h) * $nscry;
+
+	my $sx=$x-$scr_shift_x;
+	my $sy=$y+$scr_shift_y;		# These odd arithmetics are needed
+	$sy-=int($scrh) * $nscrsy;	# to compensate for what happened to y
+					# in the function get_what_on_screen().
+					# The $sy -= ...$nscrsy line is for the
+					# added $nscry,
+					# The plus sign in +$scr_shift_y is for
+					# $nscry that was taken with a minus
+					# sign in that function.
+
+	print "ultradebug: sx=$sx, sy=$sy, sy2=$sy2, type=$sprtype\n";
+
+	print "debug: i=$x, j=$y, sy=$sy\n"; 
+
+	$sx *= $tile_width;
+	$sy *= $tile_rows;
+	
+	#$y=$worldh-$y;
+	$y=12-$y;
+
+	# Print coords at their pos, not at sprite origin.
+	$dsy = $sy + $tile_height/2 - 1;
+
+	print "curses:paste:backdrop:spr$spr_type:0:0:$sx:$sy:16:8\n";
+	print "curses:prc:backdrop:$sx:$dsy:7:0:$x,$y\n";
+}
+
+sub create_object
+{
+	my ($x, $y, $type) = @_;
+	my $o = $type->new($x, $y);
+	$num_objects++;
+	push @objects, $o;
+
+	return $o;
+}
+
+sub create_object_once
+{
+	my ($x, $y, $type) = @_;
+	my $obj;
+
+	if (defined $state{"$x,$y"}) {
+		my $id = $state{"$x,$y"};
+		$obj = $objects[$id]; 
+	} else {
+		$obj = create_object($x, $y, $type);
+		$state{"$x,$y"} = $obj->{id};
 	}
 
-	print "curses:paste:backdrop:spr$sprtype:0:0:" . $sx * $tile_width
-		. ":" . $sy * $tile_rows . ":16:8\n";
+	return $obj;
+}
+
+sub load_square
+{
+	my ($x, $y, $type) = @_;
+
+	$y = 12 - $y;	# 13 would spawn obj's 1 $y above.
+
+	for (@{$types4{$type}}) {
+		if ($_ eq "obst") { push @obst, $type }
+		elsif ($_ eq "brick") { push @brick, $type }
+		elsif ($_ eq "box") { push @box, $type }
+		elsif ($_ eq "klop") {
+			create_object_once($x, $y, "Klop");
+			#my $k = new Klop($x, $y);
+			#print "loading klop at $x,$y\n";
+			#push @klop, $k;
+		} 
+		elsif ($_ eq "player") {
+			print "debug: player creted\n";
+			$player = create_object_once($x, $y, "Player");
+			#$player=new Player($x, $y);
+			$object_created=1;
+		}
+		if ($_ eq "hide") { next }
+		if (/show=(.*)/) { $type=$1 || " " }
+		print "type loop\n";
+	}
+	return $type;
+}
+
+sub get_sprite
+{
+	my ($i, $j) = @_;
+
+	# Upside down because $y is reversed for drawing.
+	$j=12-$j;
+	if (($j<0) || ($j>$worldh)) {
+		return $world[0][0];
+	}
+	my $spr_type=$world[$i][$j] ne "" ?
+		$world[$i][$j] : 
+		$world[0][0];
+	return $spr_type;
+}
+
+sub get_what_on_screen
+{
+	my ($nscr, $nscry) = @_;
+	my $start_x = int($scrw) * $nscr; 
+	my $end_x = $start_x + $scrw;
+	$nscrsy = int ($worldh / int($scrh)) - 1;
+
+	#if ($nscrsy < 1) {
+	#	$nscrsy=0;
+	#}
+ 
+	#$nscrsy = 0; # $worldh / int($scrh);
+	#$nscrs += $scrh%1 ? 1 : 0;
+	my $rnscry = $nscrsy - $nscry;
+	my $start_y = int($scrh) * ($worldhurr+$rnscry); 
+	my $end_y = $start_y + $scrh;
+
+	print "s:$start_y e:$end_y\n";
+	return $start_x, $start_y, $end_x, $end_y;
 }
 
 sub draw_world
 {
-	for (my $i=int($scrw)*$nscr; $i<$scrw*($nscr+1); $i++) {
-		for (my $j=int($scrh)*$nscry; $j<$scrh*($nscry+1); $j++) {
-			draw_square($i, $j);
+	my ($scr_x, $scr_y, $don_t_draw) = @_;
+	$scr_x //= $nscr;
+	$scr_y //= $nscry;
+	my ($start_x, $start_y, $end_x, $end_y)
+		= get_what_on_screen($scr_x, $scr_y);
+
+	for (my $x=$start_x; $x < $end_x; $x++) {
+		for (my $y=$start_y; $y < $end_y; $y++) {
+			$spr_type = get_sprite($x, $y);
+			
+			$spr_type = load_square($x, $y, $spr_type);
+			if (not defined $don_t_draw) {
+				draw_square($x, $y, $spr_type);
+			}
 			print "sqr loop\n";
+			print "sqr: j=$y\n";
 		}
 	}
 }
+
 
 sub init_srv
 {
 	my $sprw = $spr_w * $tile_width;
 	my $sprh = $spr_h * $tile_height;
 
+	print "curses:clear\n";
 	print "curses:lnmode:1\n";
-	print "curses:progspr:load:$origsprs\n";
+#	print "curses:progspr:load:$origsprs\n";
 	print "curses:spr:walk1:$sprw:$sprh\n";
 	print "curses:spr:walk2:$sprw:$sprh\n";
 	print "curses:spr:walk3:$sprw:$sprh\n";
@@ -619,137 +1306,173 @@ sub init_srv
 #	print `bash -c 'cd \`dirname $0\`; cat data/*.crs'`;
 }
 
+sub find_spawn_point
+{
+	my $pl_char="|";
+	my ($x, $y);
+	for ($x=0; $x<=$world_w; $x++) {
+		for ($y=0; $y<=$worldh; $y++) {
+			print "x=$x,y=$y, " . $world[$x][$y] . "\n";
+			if ($world[$x][$y] eq $pl_char) {
+				return $x, $y;
+			}
+		}
+	}
+	
+	print "no fnd\n";
+	print "x=$x,y=$y, " . $world[$x][$y] . "\n";
+	die("No spawn point on map\n");
+}
+sub spawn_player
+{
+	print "search\n";
+	my ($x, $y) = find_spawn_point();
+	print "/search $x; $y\n";
+	$nscr=nscr($x);
+	$nscry=nscry($y);
+}
+
 sub sizeinit
 {
 	$inited=1;
-	
 	mkworld;
+	load_world;
 
-	
+	push @INC, "./modules/";
+	my @m = `ls | sed -n "s/\\.pm\$//p"`;
+	for my $m (@m) {
+		chomp $m;
+		load_object($m);
+	}
+
+	spawn_player;
+	load_all;
+
+	#change_screen;
+	draw_world;
+	print_pl_coord;
+
 	#FIXME: complex backticks don't work in chroot
 
-	#mkcharacter(150,158);
-
-	load_world;
 
 	print "curses:hide:logo\n";
 }
 
-sub hideall
+sub process_key
 {
-	print "curses:hide:character.walk.1\n";
-	print "curses:hide:character.walk.2\n";
-	print "curses:hide:character.walk.3\n";
-	print "curses:hide:character.walk.1.+1\n";
-	print "curses:hide:character.walk.2.+1\n";
-	print "curses:hide:character.walk.3.+1\n";
-}
-
-sub hideall2
-{
-	print "curses:hide:walk1\n";
-	print "curses:hide:walk2\n";
-	print "curses:hide:walk3\n";
-	print "curses:hide:walk1.+1\n";
-	print "curses:hide:walk2.+1\n";
-	print "curses:hide:walk3.+1\n";
-}
-
-sub draws
-{
-	hideall
-	print "curses:show:character.walk." . ($walk/2%3+1) . "\n";
-	print "curses:mvs2:character.walk." . ($walk/2%3+1) . ":"
-		. int($_[0] * $tile_width) . ":" . int($_[1] * $tile_height) . "\n";
-}
-
-sub repaint
-{
-	#draws ($a%($scrw+$sprw)-$sprw, $b%($scrh+$sprh*2)-$sprh*2)
-	#draws ($a%($scrw+$sprw)-$sprw, $b%($scrh)-$sprh*2)
-	#draws ($a % ($scrw + $spr_w) - $spr_w,
-	#    ($b - 2 * $pixel_height) % ($scrh) - $spr_h * 2 + 2 * $pixel_height)
-	draws ($a - $nscr * ($scrw + $spr_w) - $spr_w,
-	    $b - 2 * $pixel_height - $scrh * $nscry - $spr_h * 2 + 2 * $pixel_height)
+	$_=$_[0];
+	if (/a/) {
+		$vx=-$player->{walkspeed};
+		print "debug: posx=" . $player->{x} . "\n";
+		print "debug: posy=" . $player->{y} . "\n";
+	} elsif (/d/) {
+		$vx=$player->{walkspeed};
+		print "debug: posx=" . $player->{x} . "\n";
+		print "debug: posy=" . $player->{y} . "\n";
+	} elsif (/w/) {
+	} elsif (/s/) {
+	} elsif (/A/) {
+		$player->{x}-=1/16;
+		$walk--;
+		$sprmoved++;
+		change_screen;
+	} elsif (/D/) {
+		$player->{x}+=1/16;
+		$walk++;
+		$sprmoved++;
+		change_screen;
+	} elsif (/W/) {
+		$player->{y}+=1;  #=1/16;
+		$sprmoved++;
+		change_screen;
+	} elsif (/S/) {
+		$player->{y}-=1/16;
+		$sprmoved++;
+		change_screen;
+	} elsif (/R/) {
+		#$player->{x}=1/16;
+		$player->{y}=1/16;
+		$sprmoved++;
+	} elsif (/r/) {
+		draw_world;
+		print "curses:ref\n";
+	} elsif (/-/) {
+		$scrn--;
+		if ($scrn<0){ $scrn=0 };
+		draw_world 
+	} elsif (/\+/) {
+		$scrn++;
+		draw_world 
+	} elsif (/q/) {
+		#print "curses:quit\n";
+		exit 0;
+	} elsif (/z/) {
+		save_all;
+		exit 1;
+	} elsif (/i/) {
+		print "debug:a=$a, b=$b, $nscr, $nscry\n";
+	} elsif (/l/) {
+		print "curses:stats\n";
+	} elsif (/t/) {
+		#print "curses:grpdel:screen$nscr\n";
+		$vx=0;
+	#	print_dbg("nscry","player->{x}");
+	} elsif (/T/) {
+		#print "curses:rmparts\n";
+		set_alarm();
+	} elsif (/3/) {
+		print "curses:spr:backdrop:" . 2 * $tile_width * $scrw . ":" 				. 2 * $tile_height * $scrh . "\n";
+		$backdrop=1;
+		draw_world;
+		print "curses:ref\n";
+	} elsif (/4/) {
+		print "curses:hide:backdrop\n";
+		print "curses:ref\n";
+	} elsif (/5/) {
+		print "curses:show:backdrop\n";
+		print "curses:ref\n";
+	} elsif (/6/) {
+		$debuginfo^=1;
+	} elsif (/7/) {
+		print "search\n";
+	my ($x, $y) = find_spawn_point();
+		print "/search $x; $y\n";
+		#$x=5; $y=3;
+		$nscr=nscr($x);
+		$nscry=nscry($y)+1;
+		#change_screen;
+		draw_world;
+		print_pl_coord;
+	} elsif (/p/) {
+		print "curses:pr:\033]4;1;#53186f\007\n";
+	} elsif (/y/) {
+		Time::HiRes::ualarm(0);
+	} elsif (/ /) {
+		if (!$inair) {
+			$vy=.8;
+			$inair++;
+		}
+	} elsif (/b/) {
+		$sshift--;
+		print "curses:grpdel:screen$nscr\n";
+		print "curses:ref\n";
+	} elsif (/n/) {
+		$sshift++;
+		print "curses:shft:backdrop:$sshift\n";
+		print "curses:ref\n";
+	} elsif (/k/) {
+		$kx=$okx;
+	}
 }
 
 sub proc_cmd
 {
 	$_=$_[0];
-
-	if (/^user:key=a/) {
-		$vx=-$walkspeed;
-	} elsif (/^user:key=d/) {
-		$vx=$walkspeed;
-	} elsif (/^user:key=w/) {
-	} elsif (/^user:key=s/) {
-	} elsif (/^user:key=A/) {
-		$a-=1/16;
-		$walk--;
-		$sprmoved++;
-	} elsif (/^user:key=D/) {
-		$a+=1/16;
-		$walk++;
-		$sprmoved++;
-	} elsif (/^user:key=W/) {
-		$b--;
-		$sprmoved++;
-	} elsif (/^user:key=S/) {
-		$b++;
-		$sprmoved++;
-	} elsif (/^user:key=r/) {
-		draw_world;
-		print "curses:ref\n";
-	} elsif (/^user:key=-/) {
-		$scrn--;
-		if ($scrn<0){ $scrn=0 };
-		draw_world 
-	} elsif (/^user:key=\+/) {
-		$scrn++;
-		draw_world 
-	} elsif (/^user:key=q/) {
-		#print "curses:quit\n";
-		exit
-	} elsif (/^user:key=i/) {
-		print "debug:a=$a, b=$b, $nscr, $nscry\n";
-	} elsif (/^user:key=l/) {
-		print "curses:stats\n";
-	} elsif (/^user:key=t/) {
-		print "curses:grpdel:screen$nscr\n";
-	} elsif (/^user:key=T/) {
-		print "curses:rmparts\n";
-	} elsif (/^user:key=3/) {
-		print "curses:spr:backdrop:" . 2 * $tile_width * $scrw . ":" 				. 2 * $tile_height * $scrh . "\n";
-		$backdrop=1;
-		draw_world;
-		print "curses:ref\n";
-	} elsif (/^user:key=4/) {
-		print "curses:hide:backdrop\n";
-		print "curses:ref\n";
-	} elsif (/^user:key=5/) {
-		print "curses:show:backdrop\n";
-		print "curses:ref\n";
-	} elsif (/^user:key=p/) {
-		print "curses:pr:\033]4;1;#53186f\007\n";
-	} elsif (/^user:key=y/) {
-		Time::HiRes::ualarm(0);
-	} elsif (/^user:key= /) {
-		if (!$inair) {
-			$vy=.8;
-			$inair++;
-		}
-	} elsif (/^user:key=b/) {
-		$sshift--;
-		print "curses:grpdel:screen$nscr\n";
-		print "curses:ref\n";
-	} elsif (/^user:key=n/) {
-		$sshift++;
-		print "curses:shft:backdrop:$sshift\n";
-		print "curses:ref\n";
-	} elsif (/^user:key=k/) {
-		$kx=$okx;
+	
+	if (/^user:key=(.*)/) {
+		process_key($1);
 	} elsif (/^user:screen:loaded/) {
-		set_alarm();
+		#set_alarm();
 	} elsif (/^user:init/) {
 		#print "curses:pr:tst\n";
 		sleep 1;
@@ -757,12 +1480,21 @@ sub proc_cmd
 	} elsif (/^user:resize:([^:]*):([^:]*)/) {
 		$scrw=$1 / $tile_width;
 		$scrh=$2 / $tile_height;
+
+		$scrw=int $scrw;
+		$scrh=int $scrh;
+		
+		undef @loaded_screens;
+
 		if (!$inited) { sizeinit }
 		# FIXME: Should I delete the old one?
 		print "curses:spr:backdrop:" . 2 * $tile_width * $scrw . ":" 				. 2 * $tile_height * $scrh . "\n";
 		
 		update;
-		change_screen or do { draw_world; }; #$sprmoved=1; repaint; };
+		#change_screen or do { draw_world; }; #$sprmoved=1; repaint; };
+		change_screen;
+		draw_world;	# Repaint screen either way, because $nscr may 
+				# not always be different.
 		print "curses:ref\n";
 	}
 }

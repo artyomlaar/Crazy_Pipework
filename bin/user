@@ -44,7 +44,12 @@ launch()
 {
 	chs="`game_from_id $a`"
 	cd "$chs"
-	./main || ./"$chs"
+	if [ -x ./main ]
+	then
+		./main
+	else
+		./"$chs"
+	fi
 	cd - &>/dev/null # Would echo CWD
 }
 

@@ -1,0 +1,33 @@
+#!/bin/bash
+name=${1:-no_name}
+spr="`cat`"
+h=`wc -l <<<"$spr"`
+w=$(head -n1 <<< "$spr" | wc -c ); ((w--))
+
+if [[ $name = *.+1 ]]
+then
+	spr="$(perl -e 'print "0"x'$w)"$'\n'"$spr"
+	((h++))
+fi
+
+((h+=h%2, h/=2))
+
+echo curses:spr:$name:$w:$h
+
+((h*=2))	# Double (real) height for data
+
+zero_pad=0
+echo "$spr" | 
+for ((y=1; y<2*h+1; y++)) 
+do
+	if [ $y -eq 10 ]
+	then
+		zero_pad=""
+	fi
+	if read a
+	then
+		echo curses:defspr:$name:$zero_pad$y:"$a"
+	fi
+done 
+
+
