@@ -1,0 +1,41 @@
+wait_for()
+{
+#	local a=`sed -u "/$1/q"`
+#	local a=`perl -pe '/'"$1"'/ && do { print; exit }'`
+#	these only work with input not already ready for read on their startup
+
+	while IFS= read -r r
+	do
+		a+="$r"$'\n'
+		[[ "$r" = "$1"* ]] && break
+	done
+
+	local b="`perl -e '$_="'"$a"'"; s/^'"$1"'.*\Z//m; print'`"
+	#FIXME:does not end in \n if b is empty UPD: may be fixed now.
+
+	echo -n "$b${b:+$'\n'}"
+
+	if [ -n "$2" ]
+	then
+		c=`perl -e '$_="'"$a"'"; s/^'"$1"'(.*)\Z/$1/m; print $1'`;
+		eval "$2=$c"
+	fi
+}
+export -f wait_for
+
+rm_ws()
+{
+	tr -d ' \t' <<<"$1"
+}
+export -f rm_ws
+
+obj_new ()
+{
+	for e in `eval 'echo ${!'$1'[@]}'`
+	do 
+		echo -n [$e]="${dd[$e]}" |
+		sed 's/\([^\]\) /\1\\ /g'
+		echo -n " "
+	done
+}
+export -f obj_new

@@ -1,0 +1,501 @@
+#!/bin/bash
+
+PATH+=":./"
+
+cd `dirname $0`
+exec {savedstdin}<&0
+exec {savedstdout}>&1
+exec 2>/dev/null
+
+port=${2-8090}
+host=${1-localhost}
+
+[ $NULL_CLIENT ] && HOME=/home/`whoami`
+clidir="$HOME/.my-client"
+
+logdir=$clidir/log
+[ $NULL_CLIENT ] && logdir=log
+
+pipedir="$clidir/pipes-$$"
+declare -A pipe
+
+scrh=24
+scrw=80
+
+pipe[clmu]="$pipedir/clmupi"
+pipe[to_serv]="$pipedir/to_serv"
+pipe[from_serv]="$pipedir/from_serv"
+pipe[cmd]="$pipedir/cmd"
+pipe[curses]="$pipedir/curses"
+pipe[resize]="$pipedir/resizepipe"
+
+make_pipes()
+{
+	mkdir "$pipedir"
+	mkfifo "${pipe[@]}"
+	exec {toserv}<>${pipe[to_serv]}
+	pipe[to_serv]=$toserv
+}
+
+rm_pipes()
+{
+	rm -r "$pipedir"
+}
+
+make_pipes
+
+INAME=client
+jdev=/dev/input/js0
+muspid=
+p1=p1
+main_menu=( "Main Menu" ""  "Resume" "leave_menu" "Options" "enter_menu opt_menu" "Quit" "onexit; exit" )
+opt_menu=( "Options" "main_menu"  "Back" "leave_menu" "12Options" "enter_menu" "3Quit" "exit" )
+menu=( "${main_menu[@]}" )
+menu_choice=2
+declare -A filename
+
+if uname | grep -q Linux
+then
+	#TODO: use splice syscall
+	mux='use IO::Select; $|++; $s=IO::Select->new(); flush; for $f (@ARGV){ open $FD[$f], "<&$f"; $s->add($FD[$f]) }; while(1){ @ready=$s->can_read();  foreach $fh (@ready){ $b=sysread( $fh, $a, 1); print "$a"}}' 
+else
+	#same as above, so far
+	mux='use IO::Select; $|++; $s=IO::Select->new(); for $f (@ARGV){ open $FD[$f], "<&$f"; $s->add($FD[$f]) }; while(1){ @ready=$s->can_read();  foreach $fh (@ready){ $b=sysread( $fh, $a, 1); print "$a"}}' 
+fi
+
+draw_menu()
+{
+	m_ln=0
+	hmarg=1
+	for ((i=0;i<${#menu[@]};i+=2))
+	do
+		((m_ln++, maxmenuw<${#menu[i]})) && maxmenuw=${#menu[i]}
+	done
+
+	menuh=$((m_ln+2-1))
+	menuw=$((maxmenuw+2))
+	echo spr:menu:$menuw:$menuh
+	echo mvs2:menu:$(((scrw-menuw)/2)):$(((scrh-menuh)/2))
+
+	m_ln=0
+	m_keys=("${!menu[@]}") 
+
+	for ((i=2;i<${#menu[@]};i+=2))
+	do
+		((m_ln++))
+		if [ "${m_keys[menu_choice]}" = "$i" ]
+		then
+			echo prc:menu:$((hmarg+(maxmenuw-${#menu[i]})/2)):$m_ln:-1:1:"${menu[i]}"
+		else
+			echo prc:menu:$((hmarg+(maxmenuw-${#menu[i]})/2)):$m_ln:-1:-1:"${menu[i]}"
+		fi
+	done
+
+	echo box:menu
+	echo prc:menu:$((1+(maxmenuw-${#menu[0]})/2)):0:-2:-2:"${menu[0]}"
+	echo ref
+}
+
+enter_menu()
+{
+	menu=()
+	menu_choice=2
+	for ((i=0;i<$(eval 'echo ${#'$1'[@]}');i++))
+	do
+		eval 'menu[i]=${'$1"[$i]}"
+	done
+	draw_menu
+}
+
+leave_menu()
+{
+	if [ "${menu[1]}" ]
+	then
+		enter_menu "${menu[1]}" 
+	else
+		echo hide:menu
+		echo ref
+		show_menu=
+	fi
+}
+
+menu_command()
+{
+	case "$1" in
+	w) ((menu_choice>2)) && ((menu_choice-=2)); draw_menu blah ;;
+	s) ((menu_choice<${#menu[@]}-2)) && ((menu_choice+=2)); draw_menu bl;;
+	q):;;
+	$'\x0d'|" ") ${menu[menu_choice+1]} ;;
+	1) "${menu[${m_keys[$menu_choice]}]}";;
+	esac
+}
+
+obj_new ()
+{
+	for e in `eval 'echo ${!'$1'[@]}'`
+	do 
+		eval 'echo -n [$e]="${'$1'[$e]}"' |
+		sed 's/\([^\]\) /\1\\ /g'
+		echo -n " "
+	done
+}
+
+declare -A mikmod_class=( 
+	[load]="mikmod -hqmixer -r4 -i -o8m -f8000"
+	[ipipe]="$pipedir/clmupi"
+	[onstart]="9r "
+	[pause]=" "
+)
+midi_class=( [1]=" " )
+
+eval "declare -A obj_mikmod=(`obj_new mikmod_class`)"
+
+start_srv()
+{
+	nc -lp $port -e ./looped_pipe2 &
+}
+
+onstart()
+{
+	stty -icanon <&$savedstdin
+	stty -echo <&$savedstdin
+	#stty -tostop
+}
+
+file_is_cached()
+{
+	return 1
+}
+
+file_is_accepted()
+{
+	return 0
+}
+
+onexit()
+{
+	rm "$clidir"/cache/* 2>/dev/null
+	stty icanon <&$savedstdin
+	stty echo <&$savedstdin
+	{
+		kill $muspid $joypid $ncpid $curpid $inputpid 
+		kill `jobs -p`
+	} 2>/dev/null
+	wait 2>/dev/null # removes "terminated" message
+	rm_pipes
+	echo -ne "\x1b[?25h" # make cursor visible
+}
+startmusic()
+{
+	local handle="`cut -d: -f1 <<<"$1"`"
+	local   play="`cut -d: -f2 <<<"$1"`"
+	
+	${obj_mikmod[load]} "${filename[$handle]}" <${obj_mikmod[ipipe]} &>/dev/null &  
+	muspid=$!
+	if [ "$play" = "pause" ]
+	then
+		echo -n "${obj_mikmod[onstart]}" > ${obj_mikmod[ipipe]}
+	fi
+}
+
+mkpipe () 
+{ 
+    local i;
+    tmp=/tmp/tmpfifo$$;
+    for i in "$@";
+    do
+        mkfifo $tmp;
+        eval "exec {$i}<>$tmp";
+        rm $tmp;
+    done
+}
+
+curses_start()
+{
+	[ "$curses_on" ] && return
+	curses_on=yes
+}
+
+prockey()
+{
+	case $2:$3 in
+	8001:0201) echo user:key=w >&${pipe[to_serv]} ;; # up
+	8001:0200) echo user:key=a >&${pipe[to_serv]} ;; # left
+	7FFF:0201) echo user:key=s >&${pipe[to_serv]} ;; # down
+	7FFF:0200) echo user:key=d >&${pipe[to_serv]} ;; # right
+
+	0001:0100) echo user:key=1 >&${pipe[to_serv]} ;;
+	0001:0101) echo user:key=6 >&${pipe[to_serv]} ;;
+	0001:0105) echo user:key=i >&${pipe[to_serv]} ;;
+	0001:0106) echo user:key=q >&${pipe[to_serv]} ;;
+	esac
+}
+
+readkeys()
+{
+	mkpipe p1
+	head -c96 > /dev/null # |read -t.01 -N96 # skip config info
+	#FIXME 96 is a magic number that only works for my joystick.
+
+	while [ -r $jdev ] 
+	do
+		hexdump -n8 -v -e '1/4 "%08X " 1/2 "%04X " 2/1 "%02X" "\n"'>&$p1
+		read -t 1 a b c <&$p1
+		prockey $a $b $c
+	done
+	exec $p1>&-
+	exec $p1<&-
+	rm p1
+}
+
+joymain()
+{
+	while :
+	do
+		readkeys <$jdev # && break;
+		sleep 20
+	done
+}
+
+recv_file()   # args: handle, count
+{
+	local handle="`cut -d: -f1 <<<"$1"`"
+	local  count="`cut -d: -f2 <<<"$1"`"
+	local lfilename="$clidir/cache/${sha1[$handle]}.${ext[$handle]}" 
+	# FIXME: check vars -- security breach
+
+	filename[$handle]="$lfilename"
+
+	if ! file_is_accepted "$handle"
+	then
+		lfilename=/dev/null
+	fi
+	dd bs=1 of="$lfilename" skip=0 count="$size" 2>/dev/null
+	# or explicitly set where the non-command output 
+	# goes to, e.g. out:stdout out:music.mod
+}
+
+file_offer() # args: handle, extension, size, sha1
+{
+	local handle="`cut -d: -f1 <<<"$1"`"
+	ext[$handle]="`cut -d: -f2 <<<"$1"`"
+	size[$handle]="`cut -d: -f3 <<<"$1"`"
+	sha1[$handle]="`cut -d: -f4 <<<"$1"`"
+
+	if [ -z $NULL_CLIENT ] 
+	then
+		if ! file_is_cached "$handle"
+		then
+			echo -e "file:accept:$handle" >&${pipe[to_serv]}
+			echo -e "file:send:$handle:0:$size" >&${pipe[to_serv]}
+		else
+			echo -e "file:cached:$handle" >&${pipe[to_serv]}
+		fi
+	else
+		echo -e "file:reject:$handle" >&${pipe[to_serv]}
+	fi
+}
+
+toggle_menu()
+{
+	if [ $show_menu ]
+	then
+		leave_menu
+	else
+		enter_menu main_menu
+		show_menu=1
+	fi
+} 
+
+
+proc_cmd()
+{
+	while IFS= read chj
+	do
+	set -- "$chj"
+	#echo "$1" >> $logdir/last-$$
+	case "$1" in
+	curses:start*) curses_start ;;
+	curses:*) echo "${1#*:}" >&${pipe[curses_fd_w]} ;;
+	music:on|music:off) echo -n " " > ${pipe[clmu]} ;;
+	music:start:*) startmusic "${1#music:start:}";;
+	#exit) onexit; exit 0;;
+	file:*) recv_file "${1#*:}";;
+	file-offer:*) file_offer "${1#*:}";;
+	#user:resize*) echo "$1" >&${pipe[to_serv]} ;;
+	user:resize*) scrw=`sed 's/^user:resize:\([^:]*\):.*/\1/' <<<"$1"`
+		scrh=`sed 's/^user:resize:[^:]*:\(.*\)/\1/' <<<"$1"`
+		;;
+	'user:key=`'*) toggle_menu >&${pipe[curses_fd_w]};;
+	#$'user:key=\x1b'*) toggle_menu >&${pipe[curses_fd_w]};;
+	user:key=*) if [ $show_menu ]
+		then
+			menu_command "${1#*=}" </dev/null 2>/dev/null \
+			>&${pipe[curses_fd_w]}
+		else
+			echo "${1}" >&${pipe[to_serv]} 
+		fi ;;
+#	*) echo "$1" >> $logdir/client-unknown-cmd-$$;;
+	esac
+	done
+	kill $muspid  # check it out dude, we're in a subshell!!1
+}
+
+installed()
+{
+	if [ -d "$clidir" ] 
+	then 
+		return 0
+	else
+		return 1
+	fi
+}
+
+initjs()
+{
+	if [ -r $jdev ]
+	then
+		:
+	else
+		jdev=/dev/null
+	fi
+}
+
+install_client()
+{
+	mkdir -m 0700 -p "$clidir/bin" "$pipedir" "$clidir/cache" "$clidir/download" 
+#	mkfifo ${pipe[to_serv]}
+	mkfifo ${pipe[from_serv]}
+	mkfifo ${pipe[clmu]}
+	mkfifo ${pipe[curses]}
+	mkfifo ${pipe[resize]}
+}
+
+askinst()
+{
+		echo You need to install the client first
+		echo Install the client to $clidir? [y/n]
+		while read -n1
+		do
+			case $REPLY in
+				[yY]) install; break;;
+				[nN]) exit 0;;
+			esac
+		done
+		exit
+}
+
+checkinstalled()
+{
+	if installed 
+	then
+		return
+	else
+		install_client
+	fi
+}
+
+if [ $NULL_CLIENT ]
+then
+	echo "out:telnet_set_raw"
+	exec {stdouttwo}>&1
+	pipe[to_serv]=$stdouttwo
+	savedstdin=$stdin
+	echo "mod:set_piped_output:in"
+	wait_for in:all_output: reply
+	pipe[from_serv]="${reply%:*}"
+	exec >&"${reply#*:}"
+	exec 2>&"${reply#*:}"
+fi
+
+checkinstalled
+
+if [ ! $NULL_CLIENT ] 
+then 
+	initjs
+	joymain &
+	joypid=$!
+fi
+
+onstart
+
+trap 'onexit' INT EXIT QUIT
+
+if [ ! $NULL_CLIENT ]
+then
+	nc $host $port <&${pipe[to_serv]} >${pipe[from_serv]} &
+	ncpid=$!
+fi
+
+perl -e 'use IO::Handle; $|++;binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; while (1){ $b=sysread STDIN, $a, 1; if (!$b){ exit }; $c="user:key=$a\n"; syswrite STDOUT, $c, length($c); flush }' <&$savedstdin >${pipe[cmd]} 2>/dev/null &
+
+inputpid=$!
+
+echo "client=stdc" >&${pipe[to_serv]}
+
+exec {curses_pipe_fd_w}<>${pipe[curses]}
+pipe[curses_fd_w]=$curses_pipe_fd_w
+unset curses_pipe_fd_w
+
+proc_cmd <${pipe[cmd]} 2>/dev/null & 
+
+perl -e 'use IO::Handle; $|++;
+binmode STDIN, ":utf8"; 
+binmode STDOUT, ":utf8"; 
+open(CMD, ">&3"); binmode CMD, ":utf8"; 
+open(CURSES, ">&4"); binmode CURSES, ":utf8"; 
+while (1) { 
+	while (1) { 
+		$b=sysread STDIN, $a, 1; 
+		if (!$b) { exit 1 }; 
+		if ($a eq "\x01"){ flush; last }; 
+		syswrite STDOUT, $a, 1 
+	};
+	$cmd=""; 
+	while (1) { 
+		$b=sysread STDIN, $a, 1; 
+		if (!$b) { exit 1 }; 
+		if ($a eq "\x02"){ 
+			$cmd.="\n"; 
+			if ($cmd =~ s/^curses:(?!start)//){ 
+				syswrite CURSES, $cmd, length($cmd); 
+				flush CURSES 
+			} elsif ($cmd =~ /^file:[^:]*:([^:]*)/) { 
+				#open (FDBG, ">filedebug");
+				#binmode FDBG;
+				binmode STDIN;
+				binmode CMD;
+				$file_read=0; $a=$tmp="";
+				chomp $cmd; 
+				while ($file_read < $1)
+				{
+				$file_read+=sysread STDIN, $tmp, $1-$file_read; 
+				#$cmd.=":read=$file_read ";
+				$a.=$tmp;
+				}
+				$cmd.="\n";
+				$cmd.=$a;
+				syswrite CMD, $cmd, length($cmd); flush CMD;
+				#syswrite FDBG, $cmd, length($cmd); flush FDBG;
+				#close FDGB;
+				binmode STDIN, ":utf8";
+				binmode CMD, ":utf8";
+			} else { 
+				syswrite CMD, $cmd, length($cmd); flush CMD 
+			};
+			last 
+		}; 
+		$cmd.=$a 
+	} 
+}' <${pipe[from_serv]} 2>/dev/null 3>${pipe[cmd]} 4>&${pipe[curses_fd_w]} & # >/dev/tty &
+
+tee >&${pipe[to_serv]} 2>/dev/null ${pipe[cmd]} <${pipe[resize]} &
+
+[  $NULL_CLIENT ] && echo "mod:ready:in" >&${pipe[to_serv]}
+
+python $clidir/bin/py_curses.py <&${pipe[curses_fd_w]} 3>${pipe[resize]}
+
+rm -r "$pipedir"
+
+exit
+
