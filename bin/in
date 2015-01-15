@@ -13,11 +13,13 @@ proc_cmd2()
 		sed -un '/^user:key=/p;
 			/^client=/p;
 			/^user:resize:/p;
+			/^user:screen:/p;
 			/^user:client-time=/p;
 			/^file:send:/p; 
 			/^file:accept:/p
 			'
 		# grep '^game:key=.*' # doesnt really filter 
+		# TODO: add a filter for keys / second and line width
 	elif [[ $1 =~ ^get-client.* ]]
 	then
 		echo out:cat-client
@@ -43,7 +45,7 @@ in_init()
 		fi
 		echo in:init; 
 
-		NULL_CLIENT=1 exec bash ./client.sh
+		NULL_CLIENT=1 exec $BINDIR/client
 }
 
 proc_cmd()

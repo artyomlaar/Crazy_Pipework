@@ -1,9 +1,12 @@
 #!/bin/bash
 
-while='while(<STDIN>){ '
-end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && exit 0; /^main:set_config/ && last ; }; s/^main:set_config://; $conf=$_; print "evaling\n"; eval $conf;'
+while='while (getln) { llog; '   
+#while='while(<STDIN>){ '   
 
-declare -A pid pipe 
+#while='while(<STDIN>){ printf DEBUG ".3f $_", Time::HiRes::time-$^T; flush DEBUG; '
+end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { onexit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
+
+declare -A pid pipe in_pipe loaded 
 
 
 md_set_io()
@@ -29,12 +32,16 @@ mkconfig()
 {
 	for file in "${close[@]}"
 	do
+		echo -n "rmfd \*in_$file; "
+		echo -n "close in_$file; "
 		echo -n "close $file; "
 	done
 
 	for file in "${open[@]}"
 	do
 		echo -n "open $file, \">${pipe[$file]}\"; "
+		echo -n "open in_$file, \"<${in_pipe[$file]}\"; "
+		echo -n "addfd \*in_$file; "
 	done
 
 	echo -n "$while"
@@ -49,14 +56,26 @@ mkconfig()
 
 md_load()
 {
+	if [ "${loaded[$1]}" ]
+	then
+		echo "mod:ready:$1"
+		return
+	else
+		loaded[$1]=1
+	fi
+
 	pipe[$1]="$pdir/$1"
+	in_pipe[$1]="$pdir/to_loop_$1"
+
 	[ -p "${pipe[$1]}" ] || mkfifo "${pipe[$1]}" 
-	./$1.sh <$pdir/$1 &
+	[ -p "${in_pipe[$1]}" ] || mkfifo "${in_pipe[$1]}" 
+
+	$BINDIR/$1 <$pdir/$1 >${in_pipe[$1]} 2>$logdir/$1 &
 	pid[$1]=$!
 	open="$1"
-	mod[${#mod[@]}]=$1 
-	echo "main:set_config:`mkconfig`"
-	echo "$1:init"
+		mod[${#mod[@]}]=$1 
+		echo "main:set_config:`mkconfig`"
+		echo "$1:init"
 	open=()
 }
 mod_use_step()
@@ -91,7 +110,6 @@ proc_cmd()
 	mod:ready:*) mod_use_step;;
 	mod:free:*) :;;
 	mod:add:*) :;;
-	mod:use:*) md_use "${1#mod:use:}";;
 	mod:get_stdin:*) md_give_stdin "${1#mod:get_stdin:}";;
 	mod:get_stdout:*) md_give_stdout "${1#mod:get_stdout:}";;
 	mod:set_io:*) md_set_io "${1#mod:set_io:}";;

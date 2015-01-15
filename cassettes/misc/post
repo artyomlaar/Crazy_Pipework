@@ -1,0 +1,27 @@
+#!/bin/perl
+
+#$thread=$_[1];
+#$post=$_[2];
+#$pic=$_[3];
+
+open P, ">>../misc/data/board";
+print P "in\n";
+close P; # msg, img
+open P, ">>../misc/data/board";
+print "in\n";
+sleep(10);
+if (!$post) {
+	print "Enter post. Empty line finishes input.\n";
+
+	while (<STDIN>) {
+		/\S/ || last;
+		$post .= $_;
+	}
+}
+$post =~ s/\n/\\n/g;
+$post =~ s/@/<at>/g;
+$post && 
+	print P time() . "001@" . $post . "@" . $pic . "\n";
+
+
+close P; # msg, img

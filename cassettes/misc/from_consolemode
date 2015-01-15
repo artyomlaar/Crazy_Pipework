@@ -1,0 +1,6 @@
+#!/bin/bash
+
+stty -icanon -echo <&$stdin
+sleep 1
+echo "curses:cstart"
+sleep 1

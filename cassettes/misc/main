@@ -1,9 +1,24 @@
 #!/bin/bash
 command=adventure
+
+#echo "mod:use:curses"
+#sleep 1
+#echo "curses:cstop"
+#sleep 1
+#stty icanon echo <&$stdin
+
+cd `dirname $0`
+./consolemode
+
 $command 2>&1 <&$stdin >&$stdout 
+
 echo Press any key to exit... >&$stdout 
 read -n1 <&$stdin
 exit
+
+
+
+
 
 echo mod:use:in
 sleep 2

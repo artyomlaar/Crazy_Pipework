@@ -1,0 +1,192 @@
+#!/bin/perl
+
+$x=1;
+$y=1;
+$c=1;
+$|++;
+$pen=0;
+$pwd=`dirname $0`;
+chomp $pwd;
+chdir $pwd;
+
+
+sub fix_coords
+{
+	($x<1) && ($x=1);
+	($y<1) && ($y=1);
+	($x>16) && ($x=16);
+	($y>16) && ($y=16);
+}
+
+sub init
+{
+	#print "out:printl:".`reset`."\n";
+	#print "curses:cstop\n";
+#	system("../misc/consolemode ../misc/captcha") && 
+#system("../misc/consolemode ../misc/post 0 hi 2:2:5670");
+#		print "out:printl:yes!!\n";
+#	sleep 10;
+
+#	print "curses:cstart\n";
+}
+
+sub clear
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$img[$i][$j]=$c;
+		}
+	}
+}
+
+sub serialize
+{
+	my $data;
+
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$data.=$img[$j][$i] || "0";
+		}
+	}
+	return "16:16:$data";
+}
+
+sub post
+{
+	open P, ">>../misc/data/board";
+	print P time() . "001@\\n@" . serialize() . "\n";
+	close P;
+}
+
+sub backup
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$undo[$i][$j]=$img[$i][$j];
+		}
+	}
+}
+
+sub undo
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$img[$i][$j]=$undo[$i][$j];
+		}
+	}
+}
+ 
+sub draw
+{
+	fix_coords;
+	print "out:print:\e[43m\e[2J\n";
+
+	for ($i=1;$i<17;$i++)
+	{	
+		print "out:print:\e[$i;2H\n";
+
+		for ($j=1;$j<17;$j++)
+		{
+			#[[ ${img[$i,$j]} == "" ]] && img[$j,$i]=0
+
+			#print "out:print:\e[$((j));$((2*i))H"
+			print "out:print:\e[4" . ($img[$j][$i]||0) . "m__\n";
+		}
+	}
+			
+	print "out:print:\e[$y;" . 2*$x . "H\n";
+	print "out:print:\e[47m__\n";
+
+#	print	"out:print:\e[4$((~img[$x,$y]&7))m  "
+}
+
+sub draw_part
+{
+	my ($ox,$oy,$nx,$ny)=(@_);
+	print "out:print:\e[$oy;" . 2*$ox . "H\n";
+	print "out:print:\e[4" . ($img[$ox][$oy]||0) . "m__\n";
+	print "out:print:\e[$ny;" . 2*$nx . "H\n";
+	print "out:print:\e[47m__\n";
+}
+
+sub try_draw
+{
+	if (!$pen) { return };
+	#fix_coords;
+	#$img[$x][$y]=$c;
+	$img[$ox][$oy]=$c;
+}
+
+sub proc_cmd
+{
+	$ox=$x, $oy=$y;
+	if (/^user:key=/) {
+
+		s/^user:key=//;
+
+		if (/^a/) {
+			$x--;
+			try_draw;
+		} elsif (/^d/) {
+			$x++;
+			try_draw;
+		} elsif (/^w/) {
+			$y--;
+			try_draw;
+		} elsif (/^s/) {
+			$y++;
+			try_draw;
+		} elsif (/^c/) {
+			clear;
+			draw;
+		} elsif (/^ /) {
+			$img[$x][$y]=$c;
+		} elsif (/^\d/) {
+			chomp;
+			$c=$_;
+		} elsif (/^k/) {
+			backup;
+		} elsif (/^u/) {
+			undo;
+			draw;
+		} elsif (/^o/) {
+		#	last main;
+			post;
+		} elsif (/^r/) {
+			$pen=!$pen;
+		#	try_draw;
+		} elsif (/^i/) {
+			print "curses:cstop\n";
+			return;
+		} elsif (/^I/) {
+			print "curses:cstart\n";
+			return;
+		} elsif (/^q/) {
+			exit;
+		}
+		fix_coords;
+		draw_part($ox, $oy, $x, $y);
+	}
+}
+
+#print "mod:use:curses\n";
+sleep 1;
+init;
+sleep 1;
+draw;
+
+main: proc_cmd while <>;
+
+#system('../misc/consolemode ../misc/post "" "" ' . serialize);
+#system('../misc/consolemode ../misc/captcha "" "" ' . serialize);
+#system("../misc/consolemode ../misc/captcha");  
+#sleep 5;
+

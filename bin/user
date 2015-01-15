@@ -1,0 +1,100 @@
+#!/bin/bash
+#cd `dirname $0`
+cd cassettes
+
+#./mario/main
+#exit
+
+#sed 's/^/out:print:/' ./splash.gr.txt
+#read -t .5 gameid 
+cas=`ls -F . | sed -n '/\/$/s|/||p'` 
+ndirs=6		#`wc -l <<<"$cas"`
+min=1
+a=1
+ndirs=`ls -F . | sed -n '/\/$/p' | perl -e '@_=<>; print scalar @_'`
+max=$ndirs
+
+game_from_id()
+{
+	ls -F . | sed -n '/\/$/p' | sed -n $1's|/||p' 
+#	find . -maxdepth 1 -type d | sed -n 's|./||p' | tail -n +$1 | head -n 1
+}
+
+drawmenu()
+{
+	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
+
+	for ((i=min; i<=max; i++ ))
+	do 
+		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `game_from_id $i | 
+		while read name
+		do
+			basename "$name" .sh |tr a-z A-Z
+		done`\e[1E"
+	done
+}
+
+proc_cmd()
+{
+	if [[ $1 =~ ^user:key=.* ]]
+	then
+		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
+		if [ "$k" = "w" -a $a -gt $min ]
+		then
+			((a--))
+		elif [ "$k" = "s" -a $a -lt $max ]
+		then
+			((a++))
+
+		elif [ "$k" = "1" ]
+		then
+			chs=`game_from_id $a`
+			./$chs/main || ./$chs/$chs
+		elif [ "$k" = "q" ]
+		then
+			echo "out:print:$(tput sgr0; clear)"
+			echo -e "out:print:\x01exit\x02"
+			kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
+			exit
+		fi
+		drawmenu
+	elif [[ $1 =~ ^user:init ]]
+	then
+		sleep 1
+			echo -ne out:print:"\033[44m"
+		drawmenu
+	fi
+}
+
+echo -e "mod:use:in&&out"
+
+while read cmd; do proc_cmd $cmd; done
+exit
+
+
+#./mario/game.sh
+#./galax/game.sh
+
+#./galax/games/galax.sh
+#./galax2/games/galax.sh
+./mario/game.sh
+
+kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
+exit
+
+if [ "$ndirs" -gt 1 ]
+then
+	if grep -q "$gameid" <<<"$cas"
+	then
+		drawmenu
+		while read command; do proc_cmd $command; done
+		#exec ./"$gameid"/game.sh
+	fi
+else 
+	if [ "$ndirs" -eq 1 ]
+	then
+		exec ./"$cas"/game.sh
+	fi
+fi
+

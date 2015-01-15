@@ -48,6 +48,12 @@ proc_cmd()
 		return
 	fi
 
+	if [[ $1 =~ ^out:printl:.* ]]
+	then
+		echo "${1#"out:printl:"}" >&$stdout
+		return
+	fi
+
 	if [[ $1 =~ ^out:printe:.* ]]
 	then
 		echo -ne "${1#"out:printe:"}" >&$stdout
@@ -68,7 +74,7 @@ proc_cmd()
 
 	if [[ $1 =~ ^out:cat-client ]]
 	then
-		cat ./client.sh >&$stdout
+		cat $BINDIR/client >&$stdout
 		return
 	fi
 

@@ -1,0 +1,71 @@
+#!/bin/bash
+
+cd `dirname $0`
+echo "out:print:Comment mode:"
+../misc/consolemode ../misc/post
+#../misc/consolemode ../misc/post 0 HI 2:2:5670
+../misc/to_consolemode
+while read -r c
+do
+	d="`cut -d@ -f1 <<<"$c"`"
+	c2="`cut -d@ -f2 <<<"$c"`"
+	p="`cut -d@ -f3 <<<"$c"`"
+	pw="`cut -d: -f1 <<<"$p"`"
+
+	perl -e 'use POSIX qw(strftime); print "out:printl:" . strftime("%Y-%m-%d %H:%M",localtime('$d'/1000)) . "\n";'
+	../misc/printpic "$p"
+
+	echo -en "$c2" | sed 's/\\n/\n/g' | sed 's/^/out:printl:\x1b['${pw}'C /'
+	echo out:printl:
+done <../misc/data/board
+
+echo "out:printl:Press q to quit."
+stty -icanon -echo <&$stdin
+
+while read k
+do
+	 [[ $k == user:key=q ]] && break
+done
+
+../misc/from_consolemode
+exit
+
+clear=$'\x1b[H\x1b[2J'
+echo "out:print:$clear"
+
+proc_cmd()
+{
+	if [[ $1 == user:key=* ]]
+	then
+		k="${1#user:key=}"
+		if [[ $k == $'\x10' ]]
+		then
+			echo "out:print:${clear}MESSAGE: $msg"	
+		elif [[ $k == $'\x01' ]]
+		then
+			echo -e "out:print:\e[1;1H"
+		elif [[ $k == $'\x02' ]]
+		then
+			echo -e "out:print:\e[1D"
+		elif [[ $k == $'\x7f' ]]
+		then
+			echo -e "out:print:\e[1D"
+		elif [[ $k == $'\x06' ]]
+		then
+			echo -e "out:print:\e[1C"
+		elif [[ $k == $'\x11' ]]
+		then
+			exit
+		elif [[ $k == $'\x18' ]]
+		then
+			exit
+		elif [[ $k == * ]]
+		then
+			echo "out:print:$k"	
+			msg+="$k"
+		fi	
+	fi
+
+}
+
+while IFS= read -r cmd; do proc_cmd $cmd; done

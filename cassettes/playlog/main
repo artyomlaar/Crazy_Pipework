@@ -1,0 +1,102 @@
+#!/bin/bash
+#cd `dirname $0`
+cd ../log
+#sed 's/^/out:print:/' ./splash.gr.txt
+#read -t .5 gameid 
+#cas=`ls -F . | sed -n '/\/$/s|/||p'` 
+cas=`ls -lht . |sed -n 1,20p| cut -d \  -f6-`
+ndirs=20		#`wc -l <<<"$cas"`
+min=1
+a=1
+max=$ndirs
+
+name_from_id()
+{
+	ls -hlt . | sed -n 2,21p | cut -d \  -f6- | sed -n $1'p' 
+}
+
+game_from_id()
+{
+	ls -ht . | sed -n 1,20p | sed -n $1'p' 
+}
+
+drawmenu()
+{
+	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
+
+	for ((i=min; i<=max; i++ ))
+	do 
+		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `name_from_id $i | 
+		while read name
+		do
+			echo "$name" |tr a-z A-Z
+		done`\e[1E"
+	done
+}
+
+proc_cmd()
+{
+	if [[ $1 =~ ^user:key=.* ]]
+	then
+		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
+		if [ "$k" = "w" -a $a -gt $min ]
+		then
+			((a--))
+		elif [ "$k" = "s" -a $a -lt $max ]
+		then
+			((a++))
+
+		elif [ "$k" = "1" ]
+		then
+			sed -unE '/^\S+ out:print:|^\S+ curses:/p' `game_from_id $a` |
+			perl -e 'use Time::HiRes; $|++; while (<>){ /^(\S+) (.*)/; $ct=Time::HiRes::time-$^T; if ($ct < $1){ Time::HiRes::sleep $1-$ct } print "$2\n"; }'
+			read -N1
+		elif [ "$k" = "q" ]
+		then
+		#	echo "out:print:$(tput sgr0; clear)"
+		#	echo -e "out:print:\x01exit\x02"
+		#	kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
+			exit
+		fi
+		drawmenu
+	elif [[ $1 =~ ^user:init ]]
+	then
+		sleep 1
+			echo -ne out:print:"\033[44m"
+		drawmenu
+	fi
+}
+
+echo -e "mod:use:in&&out&&curses"
+
+while read cmd; do proc_cmd $cmd; done
+exit
+
+
+#./mario/game.sh
+#./galax/game.sh
+
+#./galax/games/galax.sh
+#./galax2/games/galax.sh
+./mario/game.sh
+
+kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
+exit
+
+if [ "$ndirs" -gt 1 ]
+then
+	if grep -q "$gameid" <<<"$cas"
+	then
+		drawmenu
+		while read command; do proc_cmd $command; done
+		#exec ./"$gameid"/game.sh
+	fi
+else 
+	if [ "$ndirs" -eq 1 ]
+	then
+		exec ./"$cas"/game.sh
+	fi
+fi
+
+ls -lht chroot/crazy_pipework/log/|sed -n 1,20p| cut -d \  -f6-
