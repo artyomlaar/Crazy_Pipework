@@ -2,7 +2,7 @@
 
 export pdir=./pipe/$$
 export STANDALONE_SERVER=1
-main=./main
+main=./core.sh
 port=8090
 [ -d "$pdir" ] || mkdir "$pdir" 
 [ -p "$pdir/netcat_send" ] || mkfifo "$pdir/netcat_send" 

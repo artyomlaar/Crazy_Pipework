@@ -4,7 +4,7 @@ cd ../log
 #sed 's/^/out:print:/' ./splash.gr.txt
 #read -t .5 gameid 
 #cas=`ls -F . | sed -n '/\/$/s|/||p'` 
-cas=`ls -lht . |sed -n 1,20p| cut -d \  -f6-`
+cas=`ls -lht ./*/main |sed -n 1,20p| cut -d \  -f6-`
 ndirs=20		#`wc -l <<<"$cas"`
 min=1
 a=1
@@ -12,12 +12,12 @@ max=$ndirs
 
 name_from_id()
 {
-	ls -hlt . | sed -n 2,21p | cut -d \  -f6- | sed -n $1'p' 
+	ls -hlt ./*/main | sed -n 2,21p | cut -d \  -f6- | sed -n $1'p' 
 }
 
 game_from_id()
 {
-	ls -ht . | sed -n 1,20p | sed -n $1'p' 
+	ls -ht ./*/main | sed -n 1,20p | sed -n $1'p' 
 }
 
 drawmenu()

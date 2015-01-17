@@ -35,7 +35,7 @@ $vy=0;
 $inair=1;
 $nklop=0;
 $worldh=13*$tileh;
-
+$data_dir="/crazy_pipework/cassettes/platform/data";
 sub draw_world;
 
 
@@ -62,7 +62,8 @@ sub onscry
 {
 	my $y = $_[0];
 	my $h = $_[1];
-	return int (($y+$h)/($scrh));
+	#return int (($y)/($scrh));
+	return int ($y/($scrh + $h));
 }
 
 sub change_screen
@@ -156,6 +157,7 @@ sub drawklop
 {
 	my $k=$_[0];
 	my $hx=$k->{x}+$tilew*$nscr;
+	my $hy=$k->{y}+2*$tileh*$nscry;
 
 	if (onscr($hx, $k->{w})!=$nscr) {
 		if ($k->{visible}) { hideklop $k }
@@ -164,7 +166,7 @@ sub drawklop
 		if (!$k->{visible}) { showklop $k }
 	}
 
-	if (onscry($hy, $k->{w})!=$nscry) {
+	if (onscry($hy, 2*$k->{h})!=$nscry) {
 		if ($k->{visible}) { hideklop $k }
 		return;
 	} else {
@@ -175,7 +177,8 @@ sub drawklop
 	my $walkn=$k->{x}%$nwalk;
 
 	repaintklop( int($hx+$k->{w})%($scrw+$k->{w}),
-	             int($k->{y})%($scrh+$k->{h}*2),
+	             int($hy)%($scrh+$k->{h}*2),
+	             #int($k->{y})%($scrh+$k->{h}*2),
 	             $walkn,
 		     $k );
 
@@ -220,9 +223,48 @@ sub gettypes
 	return @k2;
 }
 
+sub cat_file
+{
+	my $file=$_[0];
+
+	print "debug_:$file\n";
+	my @lines=`cat $file`;
+	for my $line (@lines) { print $line }
+
+	# or just system("cat $file");
+	return @lines;
+}
+
 sub mkworld
 {
-	open TYPES, "</crazy_pipework/cassettes/platform/data/types.txt";
+	open SCRIPT, "<$data_dir/script.txt";
+	@script2=<SCRIPT>;
+	close SCRIPT;
+	print "debug1:", @script2, "\n";
+	for (@script2)
+	{
+		if (/^\s*\/\//) { next }
+		if (/^\s*(\S+)\.(\S+)\s*=\s*(.*)/) {
+			@{$script{$1}{$2}}=split(/\s+/, $3);
+		}
+	}
+
+	my @logo=cat_file("$data_dir/@{$script{main}{title_screen}}[0]");		
+	print "debug0:$data_dir/@{$script{main}{title_screen}}[0]\n";
+
+	$logo[0] =~ /spr:logo:([^:]+):([^:]+)/;
+	my $lx=int (($scrw-$1)/2);
+	my $ly=int (($scrh-$2)/2);
+	print "curses:mvs2:logo:$lx:$ly\n";
+	print "curses:ref\n";
+
+	print "debug2:", @{$script{level_1}{files_to_load}}, "\n";
+	for (@{$script{level_1}{files_to_load}}) {
+		cat_file("$data_dir/$_");		
+		print "debug3:", $_, "\n";
+	}
+
+	open TYPES, "<$data_dir/@{$script{level_1}{char_types}}[0]";
 	@types2=<TYPES>;
 	close TYPES;
 	for (@types2)
@@ -235,7 +277,7 @@ sub mkworld
 	for $k (keys %types3) {
 		@types4{$k}=[gettypes($k)]; #FIXME WHY???
 	}
-	open OBJ, "</crazy_pipework/cassettes/platform/data/objects.txt";
+	open OBJ, "<$data_dir/@{$script{level_1}{object_info}}[0]";
 	@obj=<OBJ>;
 	close OBJ;
 	for (@obj)
@@ -246,7 +288,7 @@ sub mkworld
 		}
 	}
 
-	open CONFIG, "</crazy_pipework/cassettes/platform/data/config.txt";
+	open CONFIG, "<$data_dir/@{$script{main}{config}}[0]";
 	@conf1=<CONFIG>;
 	close CONFIG;
 	for (@conf1)
@@ -257,7 +299,6 @@ sub mkworld
 		}
 	}
 
-	mkcharacter(150,158);
 }
 
 sub checksquares
@@ -333,8 +374,9 @@ sub can_move
 
 			if ( sqrs_ist($ox, $oy, $oex, $oey,
 			              $kx, $ky, $kex, $key) ) {
-				if ($inair) {
+				if ($inair && $vy<0) {
 					killklop $k;
+					$vy/=-2;
 				} else {
 					killcharacter;
 				}
@@ -352,8 +394,32 @@ sub fall
 	if (can_move($a-$sprw-16*$nscr, $b+1-$psprh, $sprw, $sprh-1)){
 		$b++;
 		$sprmoved++;
+		$inair=1;
 	}
 
+}
+
+sub fast_fall
+{
+	my $na=$_[0];
+	my $nb=$_[1];
+
+	$vy-=1; 
+
+	while (True) {
+		$nb= int $b-$vy;
+
+		if (can_move($a-$sprw-16*$nscr, $nb-$psprh, $sprw, $sprh-1)){
+			$b=$nb;
+			change_screen;
+			$sprmoved++;
+		}
+		else {
+			$vy=0;
+			$inair=0;
+			last;
+		}
+	}
 }
 
 sub updmove
@@ -376,10 +442,12 @@ sub updmove
 			$b=$nb;
 			change_screen;
 			$sprmoved++;
+			$inair=1;
 		}
 		else {
 			$vy=0;
-			$inair=0;
+			$inair &&
+				fast_fall($na,$nb);
 		}
 	}	
 
@@ -446,7 +514,7 @@ sub update
 
 sub load_world
 {
-	open(F, "</crazy_pipework/cassettes/platform/data/w1-1.txt");
+	open(F, "<$data_dir/w1-1.txt");
 	while (<F>)
 	{
 		for (my $j=0; $j<15; $j++)
@@ -474,7 +542,7 @@ sub draw_world
 			$k=$sprtype;
 			for (@{$types4{$k}}) {
 				if ($_ eq "obst") { push @obst, $k }
-				if ($_ eq "klop") { push @klop, mkklop($rx, 2*$sy) }
+				if ($_ eq "klop") { push @klop, mkklop($rx, 2*$sy+$scrh*$nscry) }
 				if ($_ eq "hide") { next }
 			#	if (/show=(.+)/) { $sprtype=$1 } #FIXME 
 				if (/show=(.*)/) { $sprtype=$1 || " " }
@@ -501,29 +569,14 @@ sub init_srv
 sub sizeinit
 {
 	$inited=1;
-	#sleep 2;
-	#system("cat /crazy_pipework/cassettes/platform/data/logo.crs");
 	
-	my @logo=`cat /crazy_pipework/cassettes/platform/data/logo.crs`;
-	for my $l (@logo) { print $l }
-	$logo[0] =~ /spr:logo:([^:]+):([^:]+)/;
-	my $lx=($scrw-$1)/2;
-	my $ly=($scrh-int($2/2))/2;
-	#my $ly=($scrh-$2)/2;
-	print "curses:mvs2:logo:$lx:$ly\n";
-	print "curses:ref\n";
-	
-	#system("cat /crazy_pipework/cassettes/platform/data/all2.crs");
-	#system("cat /crazy_pipework/cassettes/platform/data/all_world_data.crs");
-	my @logo=`cat /crazy_pipework/cassettes/platform/data/all2.crs`;
-	for my $l (@logo) { print $l }
-	my @logo=`cat /crazy_pipework/cassettes/platform/data/all_world_data.crs`;
-	for my $l (@logo) { print $l }
-	my @logo=`cat /crazy_pipework/cassettes/platform/data/klop-rev.crs`;
-	for my $l (@logo) { print $l }
-
-	#FIXME: backticks don't work in chroot
 	mkworld;
+
+	
+	#FIXME: complex backticks don't work in chroot
+
+	mkcharacter(150,158);
+
 	load_world;
 
 	print "curses:hide:logo\n";
@@ -647,7 +700,7 @@ sub proc_cmd
 		repaint;
 		print "user:fall\n";
 	} elsif (/^user:init/) {
-		print "curses:pr:tst\n";
+		#print "curses:pr:tst\n";
 		sleep 1;
 		init_srv
 	} elsif (/^user:resize:([^:]*):([^:]*)/) {

@@ -1,15 +1,14 @@
 #!/bin/bash
 
 cd `dirname $0`
-echo "out:print:Comment mode:"
 ../misc/consolemode ../misc/post
 #../misc/consolemode ../misc/post 0 HI 2:2:5670
 ../misc/to_consolemode
 while read -r c
 do
 	d="`cut -d@ -f1 <<<"$c"`"
-	c2="`cut -d@ -f2 <<<"$c"`"
-	p="`cut -d@ -f3 <<<"$c"`"
+	c2="`cut -d@ -f3 <<<"$c"`"
+	p="`cut -d@ -f4 <<<"$c"`"
 	pw="`cut -d: -f1 <<<"$p"`"
 
 	perl -e 'use POSIX qw(strftime); print "out:printl:" . strftime("%Y-%m-%d %H:%M",localtime('$d'/1000)) . "\n";'

@@ -7,6 +7,7 @@ export ISPEED=60
 
 #export -n pdir
 export pdir="$PIPEDIR"
+export BINDIR=./bin
 export logdir=log/$XSID
 
 mkdir $logdir
@@ -186,7 +187,7 @@ exec {stdin}<&0
 trap 'tput sgr0; clear; kill 0' EXIT INT QUIT
 #trap 'tput sgr0; kill 0' EXIT INT QUIT
 
-source "include.sh"
+source "$BINDIR/include"
 
 linebufferedcat()
 {
@@ -254,8 +255,8 @@ linebufferedcat <$to_loop >$from_loop &
 export stdin stdout
 
 #{
-	mktask "mod" "./mod.sh"
-	mktask "user" "./user.sh"
+	mktask "mod" "$BINDIR/mod"
+	mktask "user" "$BINDIR/user"
 #} >$to_loop
 
 

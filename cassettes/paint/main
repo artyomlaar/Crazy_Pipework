@@ -58,7 +58,8 @@ sub serialize
 sub post
 {
 	open P, ">>../misc/data/board";
-	print P time() . "001@\\n@" . serialize() . "\n";
+	printf P "%d001@%05d", time(), $ENV{XSID};
+	print P "@\\n@" . serialize() . "\n";
 	close P;
 }
 
