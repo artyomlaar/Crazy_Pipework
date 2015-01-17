@@ -6,6 +6,7 @@ $c=1;
 $|++;
 $pen=0;
 $pwd=`dirname $0`;
+$cursor_color=7;
 chomp $pwd;
 chdir $pwd;
 
@@ -104,7 +105,7 @@ sub draw
 	}
 			
 	print "out:print:\e[$y;" . 2*$x . "H\n";
-	print "out:print:\e[47m__\n";
+	print "out:print:\e[4${cursor_color}m__\n";
 
 #	print	"out:print:\e[4$((~img[$x,$y]&7))m  "
 }
@@ -115,7 +116,7 @@ sub draw_part
 	print "out:print:\e[$oy;" . 2*$ox . "H\n";
 	print "out:print:\e[4" . ($img[$ox][$oy]||0) . "m__\n";
 	print "out:print:\e[$ny;" . 2*$nx . "H\n";
-	print "out:print:\e[47m__\n";
+	print "out:print:\e[4${cursor_color}m__\n";
 }
 
 sub try_draw
@@ -124,6 +125,23 @@ sub try_draw
 	#fix_coords;
 	#$img[$x][$y]=$c;
 	$img[$ox][$oy]=$c;
+}
+sub show_help
+{
+	print "out:printl:\e[G      Key commands: \n";
+	print "out:printl:\e[G  w,a,s,d - move cursor \n";
+	print "out:printl:\e[G  space   - fill pixel \n";
+	print "out:printl:\e[G  0..7    - select color \n";
+	print "out:printl:\e[G  r       - toggle draw \n";
+	print "out:printl:\e[G  c       - clear \n";
+	print "out:printl:\e[G  o       - post image on COMMENT board \n";
+	print "out:printl:\e[G  k       - back up current status \n";
+	print "out:printl:\e[G  u       - undo changes since last backup \n";
+	print "out:printl:\e[G  h       - show this help message\n";
+	print "out:printl:\e[G  q       - quit \n";
+	print "out:printl:\e[G  PRESS ANY KEY to continue\n";
+	my $t=<>;
+	draw;
 }
 
 sub proc_cmd
@@ -150,7 +168,7 @@ sub proc_cmd
 			draw;
 		} elsif (/^ /) {
 			$img[$x][$y]=$c;
-		} elsif (/^\d/) {
+		} elsif (/^[0-7]/) {
 			chomp;
 			$c=$_;
 		} elsif (/^k/) {
@@ -170,9 +188,18 @@ sub proc_cmd
 		} elsif (/^I/) {
 			print "curses:cstart\n";
 			return;
+		} elsif (/^h/) {
+			show_help;
 		} elsif (/^q/) {
 			exit;
 		}
+
+		if ($img[$x][$y] eq "7"){
+			$cursor_color=0;
+		} else {
+			$cursor_color=7;
+		}
+
 		fix_coords;
 		draw_part($ox, $oy, $x, $y);
 	}
@@ -183,6 +210,7 @@ sleep 1;
 init;
 sleep 1;
 draw;
+show_help;
 
 main: proc_cmd while <>;
 
