@@ -1,0 +1,24 @@
+#!/bin/perl
+
+$thread=$ARGV[0];
+$post=$ARGV[1];
+$pic=$ARGV[2];
+$|++;
+
+open P, ">>$ENV{THREAD_F}";
+
+print "Enter post. Enter empty line to finish.\n";
+
+while (<>) {
+	/\S/ || last;
+	$post .= $_;
+}
+$post =~ s/\n/\\n/g;
+$post =~ s/@/<at>/g;
+$post =~ s/[\x00-\x2f]//g;
+if ($post) {
+	printf P "%d001@%05d@", time(), $ENV{XSID};
+	print P  "$post\n";
+}
+
+close P; # msg, img

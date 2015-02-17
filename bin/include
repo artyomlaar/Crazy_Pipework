@@ -39,3 +39,9 @@ obj_new ()
 	done
 }
 export -f obj_new
+
+max ()
+{
+	echo $(($1 > $2 ? $1 : $2))
+}
+export -f max

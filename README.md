@@ -9,7 +9,7 @@ A server for playing console games over telnet.
 
 ###Usage:
 
-- On *nix system, run:
+- On a *nix system, run:
 
 telnet 5.159.107.211
 

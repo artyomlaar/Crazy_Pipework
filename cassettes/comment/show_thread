@@ -1,0 +1,78 @@
+#!/bin/bash
+
+cd `dirname $0`
+
+threadtail=5
+thread_num=${1##*/}
+n=thread_$thread_num
+lines=`wc -l <$1`
+size=$(stty size <&$stdin)
+cols=${size#* }
+pic_pst_mgn=1
+
+cat $1 |
+if [ $short ]
+then
+	perl -e '$_=<>; print; for ($i=0;$i<'$threadtail';$i++) { $_=<>; push @a, $_ } while (<>) { push @a, $_; shift @a } print @a'
+else
+	cat
+fi |
+while read -r c
+do
+	d="`cut -d@ -f1 <<<"$c"`"
+	c2="`cut -d@ -f3 <<<"$c"`"
+	p="`cut -d@ -f4 <<<"$c"`"
+	pw="`cut -d: -f1 <<<"$p"`"
+	ph="`cut -d: -f2 <<<"$p"`"
+	[ "$short" ] && ((n==1)) &&
+		n=$((lines>5?lines-$threadtail:n))
+	perl -e 'use POSIX qw(strftime); print "out:printl:" . strftime("%Y-%m-%d %H:%M",localtime('$d'/1000)) . "\x1b[32m'\ \#$n'\x1b[39m\n";'
+	((n++));
+
+	pic_data="$(
+		[ "$p" ] && 
+			printpic "$p"
+	)"
+
+	pic_height=$(wc -l <<<"$pic_data")
+	comnt_len=$(wc -c <<<"$c2")
+	((
+		pic_width=pw?pw+pic_pst_mgn:0,
+		post_width=cols-pic_width,
+		comnt_height=comnt_len/post_width+1,
+		post_height=`max $pic_height $comnt_height` 
+	))
+
+	#[ "$pic_data" ] && 
+	#	echo "$pic_data"
+	#echo -en "$c2" |
+
+	perl -e '$a=q('"$pic_data"');
+	         $b=q('"$c2"');
+	         $h=q('"$post_height"');
+	         $w=q('"$post_width"');
+	         $a=~s/^out:printl://gm;
+	         @c=split /\n/, $a;
+	         $b=~s/\\n/\n/gm;
+	         $s="out:printl:\x1b[16C ";
+	         
+	         @ln=split /\n/, $b;
+	         for (@ln) {
+			while (s/^(.{$w})//) {
+				push @ln2, $1;
+			}
+			push @ln2, $_;
+	         }
+
+	         $h=scalar(@ln2) > $h ? scalar(@ln2) : $h; 
+		
+	         for ($i=0; $i<$h; $i++) {
+			print $c[$i], " ", $ln2[$i], "\n";
+	         }
+	' | sed 's/^/out:printl:/'
+	echo out:printl:      # after post
+done |
+sed -e '/^curses:/d' \
+    -e 's/^\(out:printl:.*\)>\(.*\)/\1\x1b[32m>\2\x1b[39m/' \
+    -e 's/^\(out:printl:\)/\1\x1b[2K\x1b[G/' 
+

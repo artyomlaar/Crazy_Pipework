@@ -1,70 +1,71 @@
 #!/bin/bash
-
 cd `dirname $0`
-../misc/consolemode ../misc/post
-#../misc/consolemode ../misc/post 0 HI 2:2:5670
-../misc/to_consolemode
-while read -r c
-do
-	d="`cut -d@ -f1 <<<"$c"`"
-	c2="`cut -d@ -f3 <<<"$c"`"
-	p="`cut -d@ -f4 <<<"$c"`"
-	pw="`cut -d: -f1 <<<"$p"`"
 
-	perl -e 'use POSIX qw(strftime); print "out:printl:" . strftime("%Y-%m-%d %H:%M",localtime('$d'/1000)) . "\n";'
-	../misc/printpic "$p"
+min=1
+a=1
+bgcolor=4
+#ndirs=`wc -l boards` no wc in chroot
+while read l; do ((max++)); done < boards
+rows=`stty size <&$stdin | cut -d\  -f1`
 
-	echo -en "$c2" | sed 's/\\n/\n/g' | sed 's/^/out:printl:\x1b['${pw}'C /'
-	echo out:printl:
-done <../misc/data/board
+game_from_id()
+{
+	sed -n $1p boards | cut -f1
+}
 
-echo "out:printl:Press q to quit."
-stty -icanon -echo <&$stdin
+name_from_id()
+{
+	sed -n $1p boards | cut -f2
+}
 
-while read k
-do
-	 [[ $k == user:key=q ]] && break
-done
+drawmenu()
+{
+	echo -e "out:print:\e[4${bgcolor}m"
+	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
+	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
 
-../misc/from_consolemode
-exit
-
-clear=$'\x1b[H\x1b[2J'
-echo "out:print:$clear"
+	for ((i=min; i<=max; i++ ))
+	do 
+		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `name_from_id $i | 
+		while read name
+		do
+			echo "$name" |tr a-z A-Z
+		done`\e[1E"
+	done
+}
 
 proc_cmd()
 {
-	if [[ $1 == user:key=* ]]
+	if [[ $1 =~ ^user:key=.* ]]
 	then
-		k="${1#user:key=}"
-		if [[ $k == $'\x10' ]]
+		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
+		if [ "$k" = "w" -a $a -gt $min ]
 		then
-			echo "out:print:${clear}MESSAGE: $msg"	
-		elif [[ $k == $'\x01' ]]
+			((a--))
+		elif [ "$k" = "s" -a $a -lt $max ]
 		then
-			echo -e "out:print:\e[1;1H"
-		elif [[ $k == $'\x02' ]]
-		then
-			echo -e "out:print:\e[1D"
-		elif [[ $k == $'\x7f' ]]
-		then
-			echo -e "out:print:\e[1D"
-		elif [[ $k == $'\x06' ]]
-		then
-			echo -e "out:print:\e[1C"
-		elif [[ $k == $'\x11' ]]
-		then
-			exit
-		elif [[ $k == $'\x18' ]]
-		then
-			exit
-		elif [[ $k == * ]]
-		then
-			echo "out:print:$k"	
-			msg+="$k"
-		fi	
-	fi
+			((a++))
 
+		elif [ "$k" = "1" ]
+		then
+			board=`game_from_id $a` \
+			boardname=`name_from_id $a` \
+			./view_board
+		elif [ "$k" = "q" ]
+		then
+			#echo "out:print:$(tput sgr0; clear)"
+			exit
+		fi
+		drawmenu
+	elif [[ $1 =~ ^user:init ]]
+	then
+		sleep 1
+			echo -ne out:print:"\033[44m"
+		drawmenu
+	fi
 }
 
-while IFS= read -r cmd; do proc_cmd $cmd; done
+echo -e "mod:use:in&&out"
+
+while read cmd; do proc_cmd $cmd; done

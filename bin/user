@@ -13,6 +13,8 @@ min=1
 a=1
 ndirs=`ls -F . | sed -n '/\/$/p' | perl -e '@_=<>; print scalar @_'`
 max=$ndirs
+rows=`stty size <&$stdin | cut -d\  -f1`
+bgcolor=4
 
 game_from_id()
 {
@@ -22,7 +24,9 @@ game_from_id()
 
 drawmenu()
 {
+	echo -e "out:print:\e[4${bgcolor}m"
 	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
 	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
 
 	for ((i=min; i<=max; i++ ))
