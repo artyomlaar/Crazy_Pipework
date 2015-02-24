@@ -14,7 +14,8 @@ a=1
 ndirs=`ls -F . | sed -n '/\/$/p' | perl -e '@_=<>; print scalar @_'`
 max=$ndirs
 rows=`stty size <&$stdin | cut -d\  -f1`
-bgcolor=4
+bgcolor=${menu_bg-4}
+fgcolor=${menu_fg-9}
 
 game_from_id()
 {
@@ -25,6 +26,7 @@ game_from_id()
 drawmenu()
 {
 	echo -e "out:print:\e[4${bgcolor}m"
+	echo -e "out:print:\e[3${fgcolor}m"
 	echo out:print:`clear``tput bold`
 	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
 	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
@@ -53,8 +55,10 @@ proc_cmd()
 
 		elif [ "$k" = "1" ]
 		then
-			chs=`game_from_id $a`
-			./$chs/main || ./$chs/$chs
+			chs="`game_from_id $a`"
+			cd "$chs"
+			./main || ./"$chs"
+			cd -
 		elif [ "$k" = "q" ]
 		then
 			echo "out:print:$(tput sgr0; clear)"

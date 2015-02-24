@@ -5,19 +5,24 @@ cd `dirname $0`
 clear=$'\x1b[0m\x1b[H\x1b[2J'
 postcount=board/$board/postcount
 echo "out:print:$clear"
+POST=tmp/${XSID}-text
+PIC=tmp/${XSID}-pic
+export POST PIC
+
 
 mk_thread()
 {
-	THREAD_F=tmp/$XSID consolemode ./post
+	THREADF=tmp/${XSID}-post
+	THREAD_F=$THREADF consolemode ./post
 	get=$(cat $postcount)
 	echo $((++get)) >$postcount
-	cat tmp/$XSID >board/$board/$get
-	rm  tmp/$XSID 
+	TARGET=board/$board/$get
+	cat $THREADF >board/$board/$get
 }
 
 view_board()
 {
-	echo out:printl:$board - $boardname
+	echo -e "out:printl:\e[2K    $board - $boardname"
 
 	for i in `ls -t board/$board/[0-9]*`
 	do
@@ -27,6 +32,7 @@ view_board()
 
 refresh_board()
 {
+	echo "out:print:$clear"
 	thread=$(view_board)
 	
 	stty -icanon -echo <&$stdin
@@ -40,26 +46,37 @@ refresh_board()
 
 print_thread()
 {
-	#../misc/to_consolemode
 	c_thread=""
-	echo -e "out:print:\e[H"
+	echo -e "out:print:\e[H\e[0m"
 	end=$1
-	start=$((end-rows))
-	((end-=2))
+	if ((end == oldpos+1))
+	then
+		((end-=2))
+		start=$((end-0))
+		echo -e "out:print:\e[$((end))H\e[2K"
+	else
+		start=$((end-rows))
+		((end-=2))
+	fi
 	scr="$(sed -n $start,${end}p <<<"$thread")"
+	prs_start=$((end-rows+2))
+	prs_scr="$(sed -n $prs_start,${end}p <<<"$thread")"
+	if [ -z "$scr" ]
+	then
+		scr=$'out:printl:'
+	fi
 	echo "$scr"
-#	sleep 10
-	#../misc/from_consolemode
 	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down; n - new thread"
 	td="[0-9]\{2\}"
-	head -n1 <<<"$scr" | 
+	head -n1 <<<"$prs_scr" | 
 		grep -q "^out:printl:[^ ]\+$td$td-$td-$td $td:$td.*thread_" &&
 		{
-			c_thread=$( head -n1 <<<"$scr" | 
+			c_thread=$( head -n1 <<<"$prs_scr" | 
 				sed "s/^out:printl:[^ ]\+$td$td-$td-$td $td:$td.*thread_\([0-9]\+\).*/\1/" )
 
 			echo "out:print:; r - reply"
 		}
+	oldpos=$1
 }
 
 refresh_board
@@ -67,6 +84,7 @@ refresh_board
 
 size=$(stty size <&$stdin)
 rows=${size% *}
+prows=$((rows-1))
 curend=$((rows+1))
 print_thread $curend
 
@@ -86,6 +104,13 @@ proc_cmd()
 		then
 			((curend+1<rows+thrlen)) &&
 				((++curend))
+		elif [[ $k == W ]]
+		then
+			((curend=(curend-rows>rows)?curend-prows:rows+1))
+		elif [[ $k == S ]]
+		then
+			((curend=(curend+rows<rows+thrlen)?curend+prows:rows+thrlen))
+			echo "out:print:$clear"
 		elif [[ $k == r ]]
 		then
 			if [ "$c_thread" ]
@@ -95,7 +120,8 @@ proc_cmd()
 			fi
 		elif [[ $k == n ]]
 		then
-			mk_thread
+			#mk_thread
+			./post_menu
 			refresh_board
 		fi	
 	fi

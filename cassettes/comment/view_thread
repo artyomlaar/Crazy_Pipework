@@ -1,13 +1,19 @@
 #!/bin/bash
 
 cd `dirname $0`
+
 THREAD_F=board/$board/$THREAD
-export THREAD_F
-clear=$'\x1b[H\x1b[2J'
+TARGET=$THREAD_F
+POST=./tmp/$XSID-text
+PIC=./tmp/$XSID-pic
+export THREAD_F POST PIC TARGET
+
+clear=$'\x1b[0m\x1b[H\x1b[2J'
 echo "out:print:$clear"
 
 refresh_thread()
 {
+	echo "out:print:$clear"
 	thread=$(./show_thread $THREAD_F)
 
 	stty -icanon -echo <&$stdin
@@ -19,27 +25,63 @@ refresh_thread()
 	done <<<"$thread"
 }
 
+mk_post()
+{
+	./post_menu
+
+	#THREAD_F=$THREADF ./post_menu
+#	THREAD_F=$THREADF consolemode ./post
+}
+
+do_post()
+{
+	cat $THREADF >>$THREAD_F
+	rm  $THREADF 
+}
+
+post_good_len()
+{
+	((`wc -c <$THREADF`<=post_max_chars)) &&
+	((`wc -l <$THREADF`<=post_max_lines))
+}
+
 print_thread()
 {
-	#../misc/to_consolemode
-	echo -e "out:print:\e[H"
+	c_thread=""
+	echo -e "out:print:\e[H\e[0m"
 	end=$1
-	start=$((end-rows))
-	((end-=2))
+	if ((end == oldpos+1))
+	then
+		((end-=2))
+		start=$((end-0))
+		echo -e "out:print:\e[$((end))H\e[2K"
+	else
+		start=$((end-rows))
+		((end-=2))
+	fi
 	scr="$(sed -n $start,${end}p <<<"$thread")"
+	prs_start=$((end-rows+2))
+	prs_scr="$(sed -n $prs_start,${end}p <<<"$thread")"
+	if [ -z "$scr" ]
+	then
+		scr=$'out:printl:'
+	fi
 	echo "$scr"
-#	sleep 10
-	#../misc/from_consolemode
 	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down"
 	td="[0-9]\{2\}"
-	head -n1 <<<"$scr" | grep -q "$td$td-$td-$td $td:$td" &&
-		echo "out:print:; r - reply"
+	head -n1 <<<"$prs_scr" | 
+	grep -q "$td$td-$td-$td $td:$td" &&
+                echo "out:print:; r - reply"
+
+	oldpos=$1
 }
+
 
 refresh_thread
 
 size=$(stty size <&$stdin)
 rows=${size% *}
+prows=$((rows-1))
 curend=$((rows+1))
 print_thread $curend
 
@@ -59,9 +101,16 @@ proc_cmd()
 		then
 			((curend+1<rows+thrlen)) &&
 				((++curend))
+		elif [[ $k == W ]]
+		then
+			((curend=(curend-rows>rows)?curend-prows:rows+1))
+		elif [[ $k == S ]]
+		then
+			((curend=(curend+rows<rows+thrlen)?curend+prows:rows+thrlen))
+			echo "out:print:$clear"
 		elif [[ $k == r ]]
 		then
-			consolemode ./post
+			./post_menu
 			refresh_thread
 		fi	
 	fi
@@ -70,3 +119,5 @@ proc_cmd()
 }
 
 while IFS= read -r cmd; do proc_cmd $cmd; done
+
+

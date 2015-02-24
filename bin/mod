@@ -4,7 +4,9 @@ while='while (getln) { llog; '
 #while='while(<STDIN>){ '   
 
 #while='while(<STDIN>){ printf DEBUG ".3f $_", Time::HiRes::time-$^T; flush DEBUG; '
-end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { onexit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
+end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { onexit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; /^main:log:(\d)/ && do {$log=$1}; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
+
+#TODO:don't log main:log commands
 
 declare -A pid pipe in_pipe loaded 
 

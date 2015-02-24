@@ -1,8 +1,0 @@
-#!/bin/bash
-
-echo "mod:use:curses"
-sleep 1
-echo "curses:cstop"
-sleep 1
-stty icanon echo <&$stdin
-

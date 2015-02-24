@@ -35,7 +35,7 @@ $vy=0;
 $inair=1;
 $nklop=0;
 $worldh=13*$tileh;
-$data_dir="/crazy_pipework/cassettes/platform/data";
+$data_dir="data";
 sub draw_world;
 
 
@@ -55,7 +55,8 @@ sub onscr
 sub nscry
 {
 	my $y = $_[0];
-	return int ($y/($scrh));
+	return int (($y-2)/($scrh));
+	#return int ($y/($scrh));
 }
 
 sub onscry
@@ -235,11 +236,17 @@ sub cat_file
 	return @lines;
 }
 
+sub openconf
+{
+	open CONF, $_[0];
+	my @conf=<CONF>;
+	close CONF;
+	return @conf;
+}
+
 sub mkworld
 {
-	open SCRIPT, "<$data_dir/script.txt";
-	@script2=<SCRIPT>;
-	close SCRIPT;
+	@script2=openconf("<$data_dir/script.txt");
 	print "debug1:", @script2, "\n";
 	for (@script2)
 	{
@@ -264,9 +271,7 @@ sub mkworld
 		print "debug3:", $_, "\n";
 	}
 
-	open TYPES, "<$data_dir/@{$script{level_1}{char_types}}[0]";
-	@types2=<TYPES>;
-	close TYPES;
+	@types2=openconf "<$data_dir/@{$script{level_1}{char_types}}[0]";
 	for (@types2)
 	{
 		if (/^\s*\/\//) { next }
@@ -277,9 +282,7 @@ sub mkworld
 	for $k (keys %types3) {
 		@types4{$k}=[gettypes($k)]; #FIXME WHY???
 	}
-	open OBJ, "<$data_dir/@{$script{level_1}{object_info}}[0]";
-	@obj=<OBJ>;
-	close OBJ;
+	@obj=openconf "<$data_dir/@{$script{level_1}{object_info}}[0]";
 	for (@obj)
 	{
 		if (/^\s*\/\//) { next }
@@ -288,9 +291,7 @@ sub mkworld
 		}
 	}
 
-	open CONFIG, "<$data_dir/@{$script{main}{config}}[0]";
-	@conf1=<CONFIG>;
-	close CONFIG;
+	@conf1=openconf "<$data_dir/@{$script{main}{config}}[0]";
 	for (@conf1)
 	{
 		if (/^\s*\/\//) { next }
@@ -298,7 +299,6 @@ sub mkworld
 			@{$conf{$1}{$2}}=split(/\s+/, $3);
 		}
 	}
-
 }
 
 sub checksquares
@@ -334,11 +334,7 @@ sub sqrs_ist
 
 sub can_move
 {
-	my $objx=$_[0];
-	my $objy=$_[1];
-	my $objw=$_[2];
-	my $objh=$_[3];
-	my $obj_is_klop=$_[4];
+	my ($objx, $objy, $objw, $objh, $obj_is_klop) = @_;
 	my $leftsqr=int($objx/16);
 	my $rightsqr=int(($objx+$objw-1)/16+1);
 	my $topsqr=int($objy/16);
@@ -346,10 +342,8 @@ sub can_move
 	($botsqr, $topsqr) = (12-$topsqr, 12-$botsqr);
 	($botsqr, $topsqr) = ($topsqr, $botsqr);
 
-	for (my $i=$leftsqr; $i<$rightsqr; $i++)
-	{
-		for (my $j=$botsqr; $j<=$topsqr; $j++)
-		{
+	for (my $i=$leftsqr; $i<$rightsqr; $i++) {
+		for (my $j=$botsqr; $j<=$topsqr; $j++) {
 			my $sqr=$world[$i][$j];
 			if ($sqr eq ""){ next }
 			if ($sqr ~~ @obst){ return 0 }
@@ -358,7 +352,6 @@ sub can_move
 	}
 
 	if (!$obj_is_klop) {
-
 		my $oex=$objx+$objw;
 		my $oey=$objy+2*$objh;
 		my $ox=$objx;
@@ -382,6 +375,30 @@ sub can_move
 				}
 			}
 		}
+	} elsif (False) {
+		my $oex=$objx+$objw;
+		my $oey=$objy+2*$objh;
+		my $ox=$objx;
+		my $oy=$objy;
+
+			#$k=mario
+			#if (!$k->{alive}) { next }
+
+			my $kx=$a;
+			my $ky=$b;
+			my $kex=$kx+$psprw;
+			my $key=$ky+$psprh;
+
+			if ( sqrs_ist($ox, $oy, $oex, $oey,
+			              $kx, $ky, $kex, $key) ) {
+				if ($inair && $vy<0) {
+					killklop $k;
+					$vy/=-2;
+				} else {
+					killcharacter;
+				}
+			}
+		
 	}
 
 	return 1;
@@ -389,27 +406,16 @@ sub can_move
 
 sub repaint;
 
-sub fall
-{
-	if (can_move($a-$sprw-16*$nscr, $b+1-$psprh, $sprw, $sprh-1)){
-		$b++;
-		$sprmoved++;
-		$inair=1;
-	}
-
-}
-
 sub fast_fall
 {
-	my $na=$_[0];
-	my $nb=$_[1];
+	my ($na, $nb) = @_;
 
 	$vy-=1; 
 
 	while (True) {
 		$nb= int $b-$vy;
 
-		if (can_move($a-$sprw-16*$nscr, $nb-$psprh, $sprw, $sprh-1)){
+		if (can_move($a-$sprw-16*$nscr, $nb-$psprh, $sprw, $sprh-1)) {
 			$b=$nb;
 			change_screen;
 			$sprmoved++;
@@ -438,7 +444,7 @@ sub updmove
 	$nb= int $b-$vy;
 
 	if ($vy) {
-		if (can_move($a-$sprw-16*$nscr, $nb-$psprh, $sprw, $sprh-1)){
+		if (can_move($a-$sprw-16*$nscr, $nb-$psprh, $sprw, $sprh-1)) {
 			$b=$nb;
 			change_screen;
 			$sprmoved++;
@@ -452,7 +458,7 @@ sub updmove
 	}	
 
 	if ($vx) {
-		if (can_move($na-$sprw-16*$nscr, $b-$psprh, $sprw, $sprh-1)){
+		if (can_move($na-$sprw-16*$nscr, $b-$psprh, $sprw, $sprh-1)) {
 			$a=$na;
 			$walk+=$vx>0?1:-1;
 			change_screen;
@@ -482,11 +488,11 @@ sub updklop
 	my $nkx=$kx+$k->{move};
 	my $nky=$ky+1;
 
-	if (can_move($nkx, $ky+1-$kh, $sprw, $kh-1, 1)){
+	if (can_move($nkx, $ky+1-$kh, $sprw, $kh-1, 1)) {
 		$k->{x}=$nkx;
 	} else { $k->{move} *= -1 }
 
-	if (can_move($kx, $nky+1-$kh, $sprw, $kh-1, 1)){
+	if (can_move($kx, $nky+1-$kh, $sprw, $kh-1, 1)) {
 		$k->{y}=$nky;
 	}
 
@@ -515,40 +521,41 @@ sub update
 sub load_world
 {
 	open(F, "<$data_dir/w1-1.txt");
-	while (<F>)
-	{
-		for (my $j=0; $j<15; $j++)
-		{
+	while (<F>) {
+		for (my $j=0; $j<15; $j++) {
 			$world[$i][$j]=substr $_, $j, 1;
 		}
 		$i++;
 	}
 	close F;
 }
+sub draw_square
+{
+	my ($i, $j) = @_;
+	my $sprtype=$world[$i][12-$j] ne "" ?
+		$world[$i][12-$j] : 
+		$world[0][0];
+	my $rx=16*$i;
+	my $sx=16*$i-$scrw*$nscr;
+	my $sy=16*$j-$scrh*$nscry;
+	$sy=int($sy/2);
+	$k=$sprtype;
+	for (@{$types4{$k}}) {
+		if ($_ eq "obst") { push @obst, $k }
+		if ($_ eq "klop") { push @klop, mkklop($rx, 2*$sy+$scrh*$nscry)}
+		if ($_ eq "hide") { next }
+	#	if (/show=(.+)/) { $sprtype=$1 } #FIXME 
+		if (/show=(.*)/) { $sprtype=$1 || " " }
+	}
+
+	print "curses:paste:backdrop:spr$sprtype:0:0:$sx:$sy:16:8\n";
+}
 
 sub draw_world
 {
-	for (my $i=int($scrw/16)*$nscr; $i*16<$scrw*($nscr+1); $i++)
-	{
-		for (my $j=int($scrh/16)*$nscry; $j*16<$scrh*($nscry+1); $j++)
-		{
-			my $sprtype=$world[$i][12-$j] ne "" ?
-				$world[$i][12-$j] : 
-				$world[0][0];
-			my $rx=16*$i;
-			my $sx=16*$i-$scrw*$nscr;
-			my $sy=16*$j-$scrh*$nscry;
-			$sy=int($sy/2);
-			$k=$sprtype;
-			for (@{$types4{$k}}) {
-				if ($_ eq "obst") { push @obst, $k }
-				if ($_ eq "klop") { push @klop, mkklop($rx, 2*$sy+$scrh*$nscry) }
-				if ($_ eq "hide") { next }
-			#	if (/show=(.+)/) { $sprtype=$1 } #FIXME 
-				if (/show=(.*)/) { $sprtype=$1 || " " }
-			}
-
-			print "curses:paste:backdrop:spr$sprtype:0:0:$sx:$sy:16:8\n";
+	for (my $i=int($scrw/16)*$nscr; $i*16<$scrw*($nscr+1); $i++) {
+		for (my $j=int($scrh/16)*$nscry; $j*16<$scrh*($nscry+1); $j++) {
+			draw_square($i, $j);
 		}
 	}
 }
@@ -582,11 +589,6 @@ sub sizeinit
 	print "curses:hide:logo\n";
 }
 
-sub upd
-{
-	draws ($a%96-16, 1)
-}
-
 sub hideall
 {
 	print "curses:hide:character.walk.1\n";
@@ -617,7 +619,8 @@ sub draws
 sub repaint
 {
 	#draws ($a%($scrw+$sprw)-$sprw, $b%($scrh+$sprh*2)-$sprh*2)
-	draws ($a%($scrw+$sprw)-$sprw, $b%($scrh)-$sprh*2)
+	#draws ($a%($scrw+$sprw)-$sprw, $b%($scrh)-$sprh*2)
+	draws ($a%($scrw+$sprw)-$sprw, ($b-2)%($scrh)-$sprh*2+2)
 }
 
 sub proc_cmd
@@ -693,12 +696,6 @@ sub proc_cmd
 		$kx=$okx;
 	} elsif (/^user:screen:loaded/) {
 		$SIG{ALRM}=\&update; Time::HiRes::ualarm($pdelay);
-	} elsif (/^user:fall/) {
-		if (can_move($a-$sprw, $b+1-$psprh, $sprw, $sprh-1)){
-			$b++;
-		}
-		repaint;
-		print "user:fall\n";
 	} elsif (/^user:init/) {
 		#print "curses:pr:tst\n";
 		sleep 1;

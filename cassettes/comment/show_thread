@@ -22,8 +22,8 @@ do
 	d="`cut -d@ -f1 <<<"$c"`"
 	c2="`cut -d@ -f3 <<<"$c"`"
 	p="`cut -d@ -f4 <<<"$c"`"
-	pw="`cut -d: -f1 <<<"$p"`"
-	ph="`cut -d: -f2 <<<"$p"`"
+	pw="`sed -n 1p <"./pic/$p" | wc -c`"
+	ph="`wc -l <"./pic/$p"`"
 	[ "$short" ] && ((n==1)) &&
 		n=$((lines>5?lines-$threadtail:n))
 	perl -e 'use POSIX qw(strftime); print "out:printl:" . strftime("%Y-%m-%d %H:%M",localtime('$d'/1000)) . "\x1b[32m'\ \#$n'\x1b[39m\n";'
@@ -31,18 +31,21 @@ do
 
 	pic_data="$(
 		[ "$p" ] && 
-			printpic "$p"
+			printpic2 "./pic/$p"
 	)"
 
 	pic_height=$(wc -l <<<"$pic_data")
 	comnt_len=$(wc -c <<<"$c2")
+#	echo cmnt_len=$comnt_len
+        ((pw-=4)) #extra escape chars counted as picture
 	((
 		pic_width=pw?pw+pic_pst_mgn:0,
 		post_width=cols-pic_width,
-		comnt_height=comnt_len/post_width+1,
+		comnt_height=comnt_len/post_width+1
+	))
+	((
 		post_height=`max $pic_height $comnt_height` 
 	))
-
 	#[ "$pic_data" ] && 
 	#	echo "$pic_data"
 	#echo -en "$c2" |

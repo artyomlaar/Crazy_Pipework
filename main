@@ -10,6 +10,7 @@ export PATH=/bin:/crazy_pipework/misc
 export pdir="$PIPEDIR"
 export BINDIR=./bin
 export logdir=log/$XSID
+export menu_fg=7 menu_bg=4
 
 mkdir $logdir
 
@@ -29,10 +30,12 @@ use v5.10;
 use IO::Handle;
 use Time::HiRes;
 $|++;
+$log=1;
 open DEBUG, ">'$logdir/main'";
 print DEBUG "0.000 debug: started at $^T\n";
 sub llog
 {
+	if (!$log) { return }
 	printf DEBUG "%0.3f ", Time::HiRes::time-$^T;
 	print DEBUG;
 	flush DEBUG;

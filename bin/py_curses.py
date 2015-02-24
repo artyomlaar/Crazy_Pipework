@@ -45,7 +45,9 @@ ptrn36=re.compile(r'^cstart')
 ptrn37=re.compile(r'^cstop')
 ptrn38=re.compile(r'^brrr')
 ptrn39=re.compile(r'^defspr:([^:]*):([^:]*):([^:]*):([^:]*)')
-ptrn40=re.compile(r'^defsprl:([^:]*):([^:]*):([^:]*)') # name, 000line, data (TODO)
+ptrn40=re.compile(r'^defspr:([^:]*):([^:]*):([^:]*)') # name, 000line, data (TODO)
+ptrn41=re.compile(r'^meta:') # skip file metadata TODO: up
+ptrn42=re.compile(r'^palette:([^:]*):([^:]*)') # spr, palette
 
 locale.setlocale(locale.LC_ALL,'') # had errors
 code=locale.getpreferredencoding()
@@ -71,6 +73,7 @@ spr_group={}
 progbar={}
 progbarmax={}
 lowerhalf="\xe2\x96\x84"
+palette={}
 
 for i in range(8): # TODO: add alpha support (color_id=-1)
 	ca.append([])
@@ -133,10 +136,17 @@ def get_user_coords(x, y):
 
 def add_sprite(name, panel):
 	sprite[name]=panel
+	palette[name]=range(8)
 
 def get_sprite(name):
 	if name in sprite:
 		return sprite[name]
+
+def have_sprite(name, w, h):
+	win=get_sprite(name)
+	if not win:
+		win=make_sprite(name, w, h)
+	return win
 
 def output(str):
 	try: OUTPUTFD.write(str)
@@ -424,9 +434,7 @@ while True:
 		h=int(h)
 		if len(data) < w * h: next
 
-		win=get_sprite(name)
-		if not win:
-			win=make_sprite(name, w, h/2)
+		win=have_sprite(name, w, h/2)
 
 		if h%2:
 			hh=h-1
@@ -437,6 +445,21 @@ while True:
 				bg = int(data[x + y*w])
 				fg = int(data[x + y*w + w])
 				scrout(win.window(), x, y/2, fg, bg, lowerhalf)
+	elif ptrn40.match(a):
+		(name,line,data)=ptrn40.match(a).groups()
+		win=get_sprite(name)
+		if not win:
+			continue
+		line=int(line)
+		if line%2:
+			for x in range(len(data)):
+				bg = palette[name][int(prevline[x])]
+				fg = palette[name][int(data[x])]
+				scrout(win.window(), x, line/2, fg, bg, lowerhalf)
+		else:
+			prevline=data
+	elif ptrn41.match(a):
+		pass
 #while 1:
 #	try:
 #		mainloop

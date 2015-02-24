@@ -1,24 +1,39 @@
+#!/bin/bash
+
+
+echo "This is a beta version. Because the of bugs, YOUR POST may be LOST."
+echo "SAVE your posts LOCALLY!"
+echo "Enter your post's text here. Enter empty line to finish."
+
+while IFS= read -r a
+do
+	[ -z "$a" ] && break;
+	b="$b""$a"$'\n'
+done
+echo "$b" >$POST
+
+
+exit
+
+
+
 #!/bin/perl
 
-$thread=$ARGV[0];
-$post=$ARGV[1];
-$pic=$ARGV[2];
+$file=$ENV{POST};
 $|++;
 
-open P, ">>$ENV{THREAD_F}";
+open P, ">$file";
 
-print "Enter post. Enter empty line to finish.\n";
+print "This is a beta version. Because the of bugs, YOUR POST may be LOST.\n";
+print "SAVE your posts LOCALLY!\n";
+print "Enter your post's text here. Enter empty line to finish.\n";
 
 while (<>) {
 	/\S/ || last;
 	$post .= $_;
 }
-$post =~ s/\n/\\n/g;
-$post =~ s/@/<at>/g;
-$post =~ s/[\x00-\x2f]//g;
 if ($post) {
-	printf P "%d001@%05d@", time(), $ENV{XSID};
-	print P  "$post\n";
+	print P  $post;
 }
 
-close P; # msg, img
+close P; 
