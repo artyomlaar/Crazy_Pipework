@@ -54,6 +54,8 @@ cd /home/pipework/chroot/
 mount --bind lib lib64
 
 Copy the screen program
+chown -R pipework chroot/home/.my-client
+cp crazy_pipework/bin/py_curses.py chroot/home/.my-client/bin/py_curses.py
 
 chown -R pipework home/
 chown -R pipework crazy_pipework/log/
