@@ -1,0 +1,85 @@
+#!/bin/bash
+#cd `dirname $0`
+
+min=1
+a=1
+bgcolor=${menu_bg-4}
+fgcolor=${menu_fg-9}
+list=post_opts
+max=`wc -l <$list`
+
+rows=`stty size <&$stdin | cut -d\  -f1`
+
+game_from_id()
+{
+	sed -n $1p $list | cut -f1
+}
+
+name_from_id()
+{
+	sed -n $1p $list | cut -f2
+}
+
+drawmenu()
+{
+	echo -e "out:print:\e[4${bgcolor}m"
+	echo -e "out:print:\e[3${fgcolor}m"
+	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
+	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
+
+	for ((i=min; i<=max; i++ ))
+	do 
+		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `name_from_id $i | 
+		while read name
+		do
+			echo "$name" |tr a-z A-Z
+		done`\e[1E"
+	done
+}
+
+choose()
+{
+#	echo out:print:11=$1=11
+	case "$1" in
+	p) consolemode ./post ;;
+	d) draw $PIC ;;
+	s) ./submit; exit ;; 
+#	d) draw ../cassettes/comment/board/0/mypic ;;
+#	d) draw board/0/mypic ;;
+	esac
+}
+
+proc_cmd()
+{
+	if [[ $1 =~ ^user:key=.* ]]
+	then
+		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
+		if [ "$k" = "w" -a $a -gt $min ]
+		then
+			((a--))
+		elif [ "$k" = "s" -a $a -lt $max ]
+		then
+			((a++))
+
+		elif [ "$k" = "1" ]
+		then
+			selection=`game_from_id $a`
+			choose $selection
+		elif [ "$k" = "q" ]
+		then
+			#echo "out:print:$(tput sgr0; clear)"
+			exit
+		fi
+		drawmenu
+	elif [[ $1 =~ ^user:init ]]
+	then
+		sleep 1
+			echo -ne out:print:"\033[44m"
+		drawmenu
+	fi
+}
+
+echo -e "mod:use:in&&out"
+
+while read cmd; do proc_cmd $cmd; done

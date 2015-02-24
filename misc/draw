@@ -1,0 +1,231 @@
+#!/bin/perl
+
+$x=1;
+$y=1;
+$c=1;
+$|++;
+$pen=0;
+#$pwd=`dirname $0`;
+$cursor_color=7;
+#chomp $pwd;
+#chdir $pwd;
+#chdir "/crazy_pipework/misc";
+#chdir "/crazy_pipework/cassettes/comment";
+$filename=$ARGV[0];
+$token="&&&&";
+
+sub fix_coords
+{
+	($x<1) && ($x=1);
+	($y<1) && ($y=1);
+	($x>16) && ($x=16);
+	($y>16) && ($y=16);
+}
+
+sub init
+{
+}
+
+sub clear
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$img[$i][$j]=$c;
+		}
+	}
+}
+
+sub load
+{
+	open P, "<$filename";
+	my @data=<P>;
+	close P;
+	for (@data) {
+		if ( /^curses:defspr:[^:]+:([^:]+):(.*)/ ) {
+			for (my $i=1; $i<17; $i++) {
+				$img[$1][$i] = substr $2, $i-1, 1
+			}
+		}
+	}
+}
+
+sub serialize
+{
+	my $data="curses:spr:$token:16:8\n";
+
+	for ($i=1;$i<17;$i++)
+	{	
+		$data .= "curses:defspr:$token:$i:";
+		for ($j=1;$j<17;$j++)
+		{
+			$data.=$img[$i][$j] || "0";
+		}
+		$data .= "\n";
+	}
+	return $data;
+}
+
+sub post
+{
+	open P, ">$filename";
+	print P serialize();
+	close P;
+}
+
+sub backup
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$undo[$i][$j]=$img[$i][$j];
+		}
+	}
+}
+
+sub undo
+{
+	for ($i=1;$i<17;$i++)
+	{	
+		for ($j=1;$j<17;$j++)
+		{
+			$img[$i][$j]=$undo[$i][$j];
+		}
+	}
+}
+ 
+sub draw
+{
+	fix_coords;
+	print "out:print:\e[43m\e[2J\n";
+
+	for ($i=1;$i<17;$i++)
+	{	
+		print "out:print:\e[$i;2H\n";
+
+		for ($j=1;$j<17;$j++)
+		{
+			#[[ ${img[$i,$j]} == "" ]] && img[$j,$i]=0
+
+			#print "out:print:\e[$((j));$((2*i))H"
+			print "out:print:\e[4" . ($img[$i][$j]||0) . "m__\n";
+		}
+	}
+			
+	print "out:print:\e[$y;" . 2*$x . "H\n";
+	print "out:print:\e[4${cursor_color}m__\n";
+
+#	print	"out:print:\e[4$((~img[$x,$y]&7))m  "
+}
+
+sub draw_part
+{
+	my ($ox,$oy,$nx,$ny)=(@_);
+	print "out:print:\e[$oy;" . 2*$ox . "H\n";
+	print "out:print:\e[4" . ($img[$oy][$ox]||0) . "m__\n";
+	print "out:print:\e[$ny;" . 2*$nx . "H\n";
+	print "out:print:\e[4${cursor_color}m__\n";
+}
+
+sub try_draw
+{
+	if (!$pen) { return };
+	#fix_coords;
+	#$img[$x][$y]=$c;
+	$img[$ox][$oy]=$c;
+}
+sub show_help
+{
+	print "out:printl:\e[G      Key commands: \n";
+	print "out:printl:\e[G  w,a,s,d - move cursor \n";
+	print "out:printl:\e[G  space   - fill pixel \n";
+	print "out:printl:\e[G  0..7    - select color \n";
+	print "out:printl:\e[G  r       - toggle draw \n";
+	print "out:printl:\e[G  c       - clear \n";
+	print "out:printl:\e[G  o       - post image on COMMENT board \n";
+	print "out:printl:\e[G  k       - back up current status \n";
+	print "out:printl:\e[G  u       - undo changes since last backup \n";
+	print "out:printl:\e[G  h       - show this help message\n";
+	print "out:printl:\e[G  q       - quit \n";
+	print "out:printl:\e[G  debug   - $filename \n";
+	print "out:printl:\e[G  PRESS ANY KEY to continue\n";
+	my $t=<>;
+	draw;
+}
+
+sub proc_cmd
+{
+	$ox=$x, $oy=$y;
+
+	if (/^user:key=/) {
+
+		s/^user:key=//;
+
+		if (/^a/) {
+			$x--;
+			try_draw;
+		} elsif (/^d/) {
+			$x++;
+			try_draw;
+		} elsif (/^w/) {
+			$y--;
+			try_draw;
+		} elsif (/^s/) {
+			$y++;
+			try_draw;
+		} elsif (/^c/) {
+			clear;
+			draw;
+		} elsif (/^ /) {
+			$img[$y][$x]=$c;
+		} elsif (/^[0-7]/) {
+			chomp;
+			$c=$_;
+		} elsif (/^k/) {
+			backup;
+		} elsif (/^u/) {
+			undo;
+			draw;
+		} elsif (/^o/) {
+		#	last main;
+			post;
+		} elsif (/^r/) {
+			$pen=!$pen;
+		#	try_draw;
+		} elsif (/^i/) {
+			print "curses:cstop\n";
+			return;
+		} elsif (/^I/) {
+			print "curses:cstart\n";
+			return;
+		} elsif (/^h/) {
+			show_help;
+		} elsif (/^l/) {
+			load;
+		} elsif (/^q/) {
+			exit;
+		}
+
+		if ($img[$x][$y] eq "7"){
+			$cursor_color=0;
+		} else {
+			$cursor_color=7;
+		}
+
+		fix_coords;
+		draw_part($ox, $oy, $x, $y);
+	}
+}
+
+#print "mod:use:curses\n";
+sleep 1;
+init;
+sleep 1;
+load;
+draw;
+show_help;
+main: proc_cmd while <STDIN>;
+
+
