@@ -1,39 +1,88 @@
 #!/bin/bash
 
 
-echo "This is a beta version. Because the of bugs, YOUR POST may be LOST."
-echo "SAVE your posts LOCALLY!"
-echo "Enter your post's text here. Enter empty line to finish."
+echo -e "out:print:\e[H\e[2J"
+echo -e "out:printl:\e[GThis is a beta version. Because of the bugs, YOUR POST may be LOST."
+echo -e "out:printl:\e[GSAVE your posts LOCALLY!"
+echo -e "out:printl:\e[GEnter your post's text here. Press Ctrl+Z to finish."
+
+seq="`echo -en "\nout:printl:\e[G\e[K"`"
+
+cread()
+{
+	IFS= read -r c
+	c="${c#user:key=}"
+}
+
+ctrl_key()
+{
+	cread && [ "$c" = "[" ] &&
+	cread && {
+		if [ "_$c" = _A ]  # up
+		then
+			curpos=0
+		elif [ "_$c" = _B ]  # down
+		then
+			curpos=len
+		elif [ "_$c" = _D ]  # left
+		then
+			(((curpos--) || (curpos=0)))
+		elif [ "_$c" = _C ]  # right
+		then
+			((curpos<len ? curpos++ : curpos))
+		elif [ "_$c" = _H ]  # home
+		then
+			curpos=0
+		elif [ "_$c" = _F ]  # end
+		then
+			curpos=len
+		elif [ "_$c" = _3 ]  # end
+		then
+			cread && [ "_$c" = _~ ] && set_vars "" 1
+
+		fi
+	}
+}
+
+set_vars()
+{
+	bspce=$1
+	del=$2
+	bs="${b:0:curpos-bspce}"
+	be="${b:curpos+del}"
+	b="${bs}${a}${be}"
+	bc="${bs}${a}_${be}"
+	sb="${bc//$'\r'/$seq}"
+	echo -e "out:print:\e[4H"
+	echo -e "out:printl:$seq${sb}$seq"
+}
+
+b="`cat <$POST`"
+set_vars
 
 while IFS= read -r a
 do
-	[ -z "$a" ] && break;
-	b="$b""$a"$'\n'
+	len=${#b}
+	a="${a#user:key=}"
+	if [ "_$a" = $'_\cz' ]
+	then
+		break
+	elif [ "$a" = $'\x7f' ]
+	then
+		a=""
+		set_vars 1
+		(((curpos--)||(curpos=0)))
+	elif [ "$a" = $'\e' ]
+	then
+		a=""
+		ctrl_key
+		set_vars
+	else
+		set_vars
+		((curpos++))
+	fi
 done
+
+b="${b//$'\r'/$'\n'}"
 echo "$b" >$POST
 
-
-exit
-
-
-
-#!/bin/perl
-
-$file=$ENV{POST};
-$|++;
-
-open P, ">$file";
-
-print "This is a beta version. Because the of bugs, YOUR POST may be LOST.\n";
-print "SAVE your posts LOCALLY!\n";
-print "Enter your post's text here. Enter empty line to finish.\n";
-
-while (<>) {
-	/\S/ || last;
-	$post .= $_;
-}
-if ($post) {
-	print P  $post;
-}
-
-close P; 

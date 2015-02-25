@@ -51,12 +51,14 @@ do
 	#echo -en "$c2" |
 
 	perl -e '$a=q('"$pic_data"');
-	         $b=q('"$c2"');
+	         $b='\'"${c2//\'/}"\'';
+	         #$b='\'"${c2//\'/\'}"\''; # FIXME doesnt work with )
 	         $h=q('"$post_height"');
 	         $w=q('"$post_width"');
 	         $a=~s/^out:printl://gm;
 	         @c=split /\n/, $a;
 	         $b=~s/\\n/\n/gm;
+	         $b=~s/\\\x27/\x27/gm;
 	         $s="out:printl:\x1b[16C ";
 	         
 	         @ln=split /\n/, $b;

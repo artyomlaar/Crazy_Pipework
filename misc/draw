@@ -134,7 +134,7 @@ sub try_draw
 	if (!$pen) { return };
 	#fix_coords;
 	#$img[$x][$y]=$c;
-	$img[$ox][$oy]=$c;
+	$img[$oy][$ox]=$c;
 }
 sub show_help
 {
@@ -208,7 +208,7 @@ sub proc_cmd
 			exit;
 		}
 
-		if ($img[$x][$y] eq "7"){
+		if ($img[$y][$x] eq "7"){
 			$cursor_color=0;
 		} else {
 			$cursor_color=7;

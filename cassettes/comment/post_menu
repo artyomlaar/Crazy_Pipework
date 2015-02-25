@@ -42,7 +42,7 @@ choose()
 {
 #	echo out:print:11=$1=11
 	case "$1" in
-	p) consolemode ./post ;;
+	p) ./post ;;
 	d) draw $PIC ;;
 	s) ./submit; exit ;; 
 #	d) draw ../cassettes/comment/board/0/mypic ;;
