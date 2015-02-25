@@ -1,12 +1,18 @@
+About this file
+===============
+
 The install script for the server hasn't been written yet, so, to install it, run these commands manually, some of them as root.
 
 How this works
 ==============
 
-First, install a inetd/xinetd daemon, which runs a telnet server.
+First, install a inetd/xinetd daemon which runs a telnet server.
 Then, change the login program used by telnet to a script that always logs you in as the same user.
 Next, change /etc/shadow to set that user's password as empty. That way you're logged in right away after you connect, no password asked.
 The user you're logged in as has ~.profile that invokes a chroot environment, where the server is run.
+
+Commands
+========
 
 Create a user
 su
