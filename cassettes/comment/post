@@ -58,6 +58,7 @@ set_vars()
 }
 
 b="`cat <$POST`"
+b="${b//$'\n'/$'\r'}"
 set_vars
 
 while IFS= read -r a

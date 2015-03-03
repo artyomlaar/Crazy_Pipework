@@ -1,0 +1,33 @@
+#!/usr/bin/perl
+use Time::HiRes qw(usleep);
+
+$user="pipework";
+$led="/sys/class/leds/blue\:ph21\:led1/trigger";
+
+sub ledctl
+{
+	open L, ">$led";
+	print L "$_[0]\n";
+	close L;
+}
+
+sub blink
+{
+	my ($n)=(@_);
+	my $off=.3 * 1000000;
+	my $on= .3 * 1000000;
+
+	for ( my $i=0; $i< $n ; $i++ ) {
+		ledctl "default-on";
+		Time::HiRes::usleep $on;
+
+		ledctl "none";
+		Time::HiRes::usleep $off;
+	}
+
+	sleep 1;
+}
+
+while (True) {
+	blink `w -sh $user | wc -l`;
+}
