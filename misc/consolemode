@@ -1,13 +1,15 @@
 #!/bin/bash
 
-echo "mod:use:curses"
+echo mod:use:curses
 sleep 1
-echo "curses:cstop"
+echo curses:cstop
 sleep 1
+echo out:send_cli_cmd:in:stop
 stty icanon echo <&$stdin
 
 #echo eval "$* <&$stdin >&$stdout" >>../misc/data/board
 eval "$* <&$stdin >&$stdout"
 
 stty -icanon -echo <&$stdin
-echo "curses:cstart"
+echo out:send_cli_cmd:in:start
+echo curses:cstart

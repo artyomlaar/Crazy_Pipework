@@ -6,7 +6,7 @@ echo -e "out:printl:\e[GThis is a beta version. Because of the bugs, YOUR POST m
 echo -e "out:printl:\e[GSAVE your posts LOCALLY!"
 echo -e "out:printl:\e[GEnter your post's text here. Press Ctrl+Z to finish."
 
-seq="`echo -en "\nout:printl:\e[G\e[K"`"
+newline_seq="`echo -en "\nout:printl:\e[G\e[K"`"
 
 cread()
 {
@@ -16,32 +16,16 @@ cread()
 
 ctrl_key()
 {
-	cread && [ "$c" = "[" ] &&
-	cread && {
-		if [ "_$c" = _A ]  # up
-		then
-			curpos=0
-		elif [ "_$c" = _B ]  # down
-		then
-			curpos=len
-		elif [ "_$c" = _D ]  # left
-		then
-			(((curpos--) || (curpos=0)))
-		elif [ "_$c" = _C ]  # right
-		then
-			((curpos<len ? curpos++ : curpos))
-		elif [ "_$c" = _H ]  # home
-		then
-			curpos=0
-		elif [ "_$c" = _F ]  # end
-		then
-			curpos=len
-		elif [ "_$c" = _3 ]  # end
-		then
-			cread && [ "_$c" = _~ ] && set_vars "" 1
-
-		fi
-	}
+	read_ctrl_key
+	case "$CTRL_KEY" in
+		(Up)	curpos=0 ;;
+		(Down)	curpos=len ;;
+		(Left)	(((curpos--) || (curpos=0))) ;;
+		(Right)	((curpos<len ? curpos++ : curpos)) ;;
+		(Home)	curpos=0 ;;
+		(End)	curpos=len ;;
+		(Delete)	set_vars "" 1 ;;
+	esac
 }
 
 set_vars()
@@ -52,9 +36,10 @@ set_vars()
 	be="${b:curpos+del}"
 	b="${bs}${a}${be}"
 	bc="${bs}${a}_${be}"
-	sb="${bc//$'\r'/$seq}"
+	sb="${bc//$'\r'/$newline_seq}"
 	echo -e "out:print:\e[4H"
-	echo -e "out:printl:$seq${sb}$seq"
+	echo "out:printc:$sb"
+	echo "out:printc:"
 }
 
 b="`cat <$POST`"

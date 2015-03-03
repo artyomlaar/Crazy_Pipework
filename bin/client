@@ -175,6 +175,13 @@ file_is_accepted()
 	return 0
 }
 
+start_input()
+{
+perl -e 'use Time::HiRes; $|++; binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; sub update{ $h='"$ISPEED"'; $SIG{ALRM}=\&update; Time::HiRes::ualarm(1000000);}; update; while ($h--) { $n=sysread STDIN, $c, 1; $c="user:key=$c\n"; if (!$n) { if ($! == 4) { next } else { last } }; syswrite STDOUT, $c, length($c); flush; }; $c="main:quit:Typing too fast...\n"; syswrite STDOUT, $c, length($c); flush;' <&$savedstdin >${pipe[cmd]} 2>/dev/null &
+
+inputpid=$!
+}
+
 onexit()
 {
 	rm "$clidir"/cache/* 2>/dev/null
@@ -338,7 +345,9 @@ proc_cmd()
 		else
 			echo "${1}" >&${pipe[to_serv]} 
 		fi ;;
-	main:quit*) echo "${1}" >&${pipe[to_serv]} 
+	main:quit*) echo "${1}" >&${pipe[to_serv]} ;;
+	in:stop*) kill $inputpid ;;
+	in:start*) start_input ;;
 #	*) echo "$1" >> $logdir/client-unknown-cmd-$$;;
 	esac
 	done
@@ -431,11 +440,7 @@ then
 	ncpid=$!
 fi
 
-perl -e 'use Time::HiRes; $|++; binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; sub update{ $h='"$ISPEED"'; $SIG{ALRM}=\&update; Time::HiRes::ualarm(1000000);}; update; while ($h--) { $n=sysread STDIN, $c, 1; $c="user:key=$c\n"; if (!$n) { if ($! == 4) { next } else { last } }; syswrite STDOUT, $c, length($c); flush; }; $c="main:quit:Typing too fast...\n"; syswrite STDOUT, $c, length($c); flush;' <&$savedstdin >${pipe[cmd]} 2>/dev/null &
-
-#perl -e 'use IO::Handle; $|++;binmode STDIN, ":utf8"; binmode STDOUT, ":utf8"; while (1){ $b=sysread STDIN, $a, 1; if (!$b){ exit }; $c="user:key=$a\n"; syswrite STDOUT, $c, length($c); flush }' <&$savedstdin >${pipe[cmd]} 2>/dev/null &
-
-inputpid=$!
+start_input
 
 echo "client=stdc" >&${pipe[to_serv]}
 

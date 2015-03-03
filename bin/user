@@ -1,18 +1,18 @@
 #!/bin/bash
-#cd `dirname $0`
+
 cd cassettes
 
-#./mario/main
-#exit
 
 #sed 's/^/out:print:/' ./splash.gr.txt
 #read -t .5 gameid 
+
 cas=`ls -F . | sed -n '/\/$/s|/||p'` 
 ndirs=6		#`wc -l <<<"$cas"`
+
 min=1
 a=1
-ndirs=`ls -F . | sed -n '/\/$/p' | perl -e '@_=<>; print scalar @_'`
-max=$ndirs
+max=`ls -F . | sed -n '/\/$/p' | perl -e '@_=<>; print scalar @_'`
+
 rows=`stty size <&$stdin | cut -d\  -f1`
 bgcolor=${menu_bg-4}
 fgcolor=${menu_fg-9}
@@ -20,7 +20,6 @@ fgcolor=${menu_fg-9}
 game_from_id()
 {
 	ls -F . | sed -n '/\/$/p' | sed -n $1's|/||p' 
-#	find . -maxdepth 1 -type d | sed -n 's|./||p' | tail -n +$1 | head -n 1
 }
 
 drawmenu()
@@ -58,7 +57,7 @@ proc_cmd()
 			chs="`game_from_id $a`"
 			cd "$chs"
 			./main || ./"$chs"
-			cd -
+			cd - &>/dev/null # echoes CWD
 		elif [ "$k" = "q" ]
 		then
 			echo "out:print:$(tput sgr0; clear)"
@@ -80,16 +79,6 @@ echo -e "mod:use:in&&out"
 while read cmd; do proc_cmd $cmd; done
 exit
 
-
-#./mario/game.sh
-#./galax/game.sh
-
-#./galax/games/galax.sh
-#./galax2/games/galax.sh
-./mario/game.sh
-
-kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
-exit
 
 if [ "$ndirs" -gt 1 ]
 then

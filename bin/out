@@ -2,8 +2,6 @@
 
 exec {savedstdout}>&1
 
-INAME=out
-
 init_srv()
 {
 
@@ -45,52 +43,41 @@ proc_cmd()
 	if [[ $1 =~ ^out:print:.* ]]
 	then
 		echo -ne "${1#"out:print:"}" >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:printl:.* ]]
+	elif [[ $1 =~ ^out:printl:.* ]]
 	then
 		echo "${1#"out:printl:"}" >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:printe:.* ]]
+	elif [[ $1 =~ ^out:printc:.* ]]
+	then
+		seq="`echo -en "\e[G\e[K"`"
+		echo "$seq${1#"out:printc:"}" >&$stdout
+
+	elif [[ $1 =~ ^out:printe:.* ]]
 	then
 		echo -ne "${1#"out:printe:"}" >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:telnet_set_raw ]]
+	elif [[ $1 =~ ^out:telnet_set_raw ]]
 	then
 		telnet_set_raw >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:telnet_unset_raw ]]
+	elif [[ $1 =~ ^out:telnet_unset_raw ]]
 	then
 		telnet_unset_raw >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:cat-client ]]
+	elif [[ $1 =~ ^out:cat-client ]]
 	then
 		cat $BINDIR/client >&$stdout
-		return
-	fi
 
-	if [[ $1 =~ ^out:set_new_output ]]
+	elif [[ $1 =~ ^out:set_new_output ]]
 	then
 		set_new_output "${1#"out:set_new_output:"}"
-		return
-	fi
 
-	if [[ $1 =~ ^out:send_cli_cmd ]]
+	elif [[ $1 =~ ^out:send_cli_cmd ]]
 	then
 		send_cli_cmd "${1#"out:send_cli_cmd:"}"
-		return
-	fi
 
-	if [[ $1 =~ ^out:init ]]
+	elif [[ $1 =~ ^out:init ]]
 	then
 		echo "mod:get_stdout:out"
 		wait_for out:stdout= stdout
@@ -107,4 +94,3 @@ trap 'onexit' EXIT INT QUIT TERM
 while IFS= read -r command; do proc_cmd "$command"; done
 
 onexit
-exit

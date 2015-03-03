@@ -68,15 +68,15 @@ net_recv()				# args: group, pgid_of_sender(??), msg
 proc_cmd()
 {
 	case "$1" in
-	net:join:*) net_join "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" ;;
-	net:leave:*) net_leave "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" ;;
-	net:send:*) net_send "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" "`cut -d: -f5 <<<"$1"`" ;;
-	net:gr:*) net_recv "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" "`cut -d: -f5 <<<"$1"`" ;;
-	net:sys_join:*) sys_net_join "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" ;;
-	net:sys_leave:*) sys_net_leave "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" ;;
-	net:rejoin:*) rejoin "`cut -d: -f3 <<<"$1"`" ;;
-	net:sys_rejoin:*) sys_net_rejoin "`cut -d: -f3 <<<"$1"`" "`cut -d: -f4 <<<"$1"`" ;;
-	net:init*) echo "mod:ready:net" ;;
+	(net:join:*)		net_join	`fields "$1" 3 4` ;;
+	(net:leave:*)		net_leave	`fields "$1" 3 4` ;;
+	(net:send:*)		net_send	`fields "$1" 3 4 5` ;;
+	(net:gr:*)		net_recv	`fields "$1" 3 4 5` ;;
+	(net:sys_join:*)	sys_net_join	`fields "$1" 3 4` ;;
+	(net:sys_leave:*)	sys_net_leave	`fields "$1" 3 4` ;;
+	(net:rejoin:*)		rejoin 		`fields "$1" 3` ;;
+	(net:sys_rejoin:*)	sys_net_rejoin	`fields "$1" 3 4` ;;
+	(net:init*)		echo "mod:ready:net" ;;
 	esac
 }
 

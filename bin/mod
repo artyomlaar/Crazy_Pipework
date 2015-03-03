@@ -1,9 +1,7 @@
 #!/bin/bash
 
 while='while (getln) { llog; '   
-#while='while(<STDIN>){ '   
 
-#while='while(<STDIN>){ printf DEBUG ".3f $_", Time::HiRes::time-$^T; flush DEBUG; '
 end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { onexit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; /^main:log:(\d)/ && do {$log=$1}; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
 
 #TODO:don't log main:log commands
@@ -106,16 +104,17 @@ set_piped_output()
 proc_cmd()
 {
 	case "$1" in
-	mod:use:*) use_mods="`rm_ws "${1#mod:use:}"`";
-		 tmp_use_mods="$use_mods"; mod_use_step;;
-	mod:load:*) md_load "${1#mod:load:}";;
-	mod:ready:*) mod_use_step;;
-	mod:free:*) :;;
-	mod:add:*) :;;
-	mod:get_stdin:*) md_give_stdin "${1#mod:get_stdin:}";;
-	mod:get_stdout:*) md_give_stdout "${1#mod:get_stdout:}";;
-	mod:set_io:*) md_set_io "${1#mod:set_io:}";;
-	mod:set_piped_output:*) set_piped_output "${1#mod:set_piped_output:}";;
+	(mod:use:*) 		use_mods="`rm_ws "${1#mod:use:}"`";
+				tmp_use_mods="$use_mods"; mod_use_step ;;
+	(mod:load:*)		md_load 	"${1#mod:load:}" ;;
+	(mod:ready:*)		mod_use_step ;;
+	(mod:free:*)		: ;;
+	(mod:add:*)		: ;;
+	(mod:get_stdin:*)	md_give_stdin 	"${1#mod:get_stdin:}" ;;
+	(mod:get_stdout:*)	md_give_stdout 	"${1#mod:get_stdout:}" ;;
+	(mod:set_io:*)		md_set_io 	"${1#mod:set_io:}" ;;
+	(mod:set_piped_output:*)
+		set_piped_output		"${1#mod:set_piped_output:}";;
 	esac
 }
 mod_init()

@@ -45,3 +45,53 @@ max ()
 	echo $(($1 > $2 ? $1 : $2))
 }
 export -f max
+
+read_key()
+{
+	IFS= read -r KEY
+	KEY="${KEY#user:key=}"
+}
+export -f read_key
+
+CTRL_KEY=""
+
+read_ctrl_key()
+{
+	read_key && [ "$KEY" = "[" ] &&
+	read_key && {
+		if [ "_$KEY" = _A ]
+		then
+			CTRL_KEY="Up"
+		elif [ "_$KEY" = _B ]
+		then
+			CTRL_KEY="Down"
+		elif [ "_$KEY" = _D ]
+		then
+			CTRL_KEY="Left"
+		elif [ "_$KEY" = _C ]
+		then
+			CTRL_KEY="Right"
+		elif [ "_$KEY" = _H ]
+		then
+			CTRL_KEY="Home"
+		elif [ "_$KEY" = _F ]
+		then
+			CTRL_KEY="End"
+		elif [ "_$KEY" = _3 ]
+		then
+			read_key && [ "_$KEY" = _~ ] && CTRL_KEY="Delete"
+		fi
+	}
+}
+export -f read_ctrl_key
+
+fields()
+{
+	local p="$1" i
+	shift
+	for i
+	do
+		printf "%q\n" "$(cut -d: -f$i <<<"$p")"
+	done
+}
+export -f fields

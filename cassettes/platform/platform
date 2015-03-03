@@ -73,12 +73,20 @@ sub change_screen
 	$onscry=$nscry;
 	$nscr=nscr($a);
 	$nscry=nscry($b);
+
+
 	if ($nscr!=$onscr){
+		undef $SIG{ALRM};
+		Time::HiRes::ualarm(0);
 		draw_world;
+#		$SIG{ALRM}=\&update; Time::HiRes::ualarm($pdelay);
 		return 1
 	}
 	if ($nscry!=$onscry){
+		undef $SIG{ALRM};
+		Time::HiRes::ualarm(0);
 		draw_world;
+#		$SIG{ALRM}=\&update; Time::HiRes::ualarm($pdelay);
 		return 1
 	}
 
@@ -347,7 +355,6 @@ sub can_move
 			my $sqr=$world[$i][$j];
 			if ($sqr eq ""){ next }
 			if ($sqr ~~ @obst){ return 0 }
-			#if ($sqr ne "\""){ return 0 }
 		}
 	}
 
@@ -505,7 +512,11 @@ sub update
 		if ($k->{alive}) { updklop $k }
 	}
 
-	updmove;
+	if (!$in_updmove) {
+		$in_updmove=1;
+		updmove;
+		$in_updmove=0;
+	}
 	if ($sprmoved) {
 		$sprmoved=0;
 		$charactervisible && repaint;
@@ -679,6 +690,8 @@ sub proc_cmd
 		print "curses:ref\n";
 	} elsif (/^user:key=p/) {
 		print "curses:pr:\033]4;1;#53186f\007\n";
+	} elsif (/^user:key=y/) {
+		Time::HiRes::ualarm(0);
 	} elsif (/^user:key= /) {
 		if (!$inair) {
 			$vy=13;

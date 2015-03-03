@@ -1,23 +1,28 @@
 #!/bin/bash
 exec {savedstdout}>&1
-INAME=nc
 
-
+start_read()
+{
+	sed -un '/^user:key=/p;
+		/^client=/p;
+		/^user:resize:/p;
+		/^user:screen:/p;
+		/^user:client-time=/p;
+		/^file:send:/p; 
+		/^file:accept:/p
+	' &
+#	' background not tested
+	input_pid=$!
+}
 
 proc_cmd2()
 {
 	if [[ $1 =~ ^client=.* ]]
 	then
 		client=${1#"client="}
+		start_read
 		echo "mod:ready:in"
-		sed -un '/^user:key=/p;
-			/^client=/p;
-			/^user:resize:/p;
-			/^user:screen:/p;
-			/^user:client-time=/p;
-			/^file:send:/p; 
-			/^file:accept:/p
-			'
+
 		# grep '^game:key=.*' # doesnt really filter 
 		# TODO: add a filter for keys / second and line width
 	elif [[ $1 =~ ^get-client.* ]]
@@ -55,11 +60,16 @@ proc_cmd()
 		echo "mod:get_stdin:in"
 		wait_for in:stdin= stdin
 		in_init
+	elif [[ $1 =~ ^in:stop.* ]]
+	then
+		kill $input_pid
+	elif [[ $1 =~ ^in:start.* ]]
+	then
+		start_read
+
 	fi
 }
 
 #echo "mod:use:blah blah"
 while read command; do proc_cmd $command; done
 
-
-exit

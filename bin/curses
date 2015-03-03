@@ -2,7 +2,6 @@
 
 exec {savedstdout}>&1
 
-INAME=curses
 
 init_srv()
 {
@@ -25,7 +24,6 @@ proc_cmd()
 		echo "mod:ready:curses"
 		perl -e '$|++; while(<>){ if (/^curses:set_new_output:.*/){ exit }; s/^curses:/\x01curses:/; s/$/\x02/; chomp; print }' >&$stdout
 		perl -e '$|++; while(<>){ s/^curses:/\x01curses:/; s/$/\x02/; chomp; print }' >$pdir/all_output
-		return
 	fi
 }
 
@@ -37,4 +35,3 @@ trap 'onexit' EXIT INT QUIT TERM
 while read command; do proc_cmd "$command"; done
 
 onexit
-exit

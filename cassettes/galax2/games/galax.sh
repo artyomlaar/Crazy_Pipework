@@ -190,6 +190,10 @@ proc_cmd()
 		elif [ "$k" = "f" ]
 		then
 			echo "mod:use:mddb"
+		elif [ "$k" = "y" ]
+		then
+			echo "out:send_cli_cmd:in:stop"
+			(sleep 5; echo "out:send_cli_cmd:in:start")&
 		fi
 
 	elif [[ $1 =~ ^user:update.* ]]
