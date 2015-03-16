@@ -52,7 +52,7 @@ jdev=/dev/input/js0
 muspid=
 p1=p1
 main_menu=( "Main Menu" ""  "Resume" "leave_menu" "Options" "enter_menu opt_menu" "Quit" "onexit; exit" )
-opt_menu=( "Options" "main_menu"  "Back" "leave_menu" "12Options" "enter_menu" "3Quit" "exit" )
+opt_menu=( "Options" "main_menu"  "Back" "leave_menu" "12Options" "enter_menu" "3Quit" "exit" "XSID=$XSID" "echo debug" )
 menu=( "${main_menu[@]}" )
 menu_choice=2
 declare -A filename

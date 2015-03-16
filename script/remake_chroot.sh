@@ -2,23 +2,25 @@
 
 ((`id -u`)) && { echo must be root.; exit 1; }
 
+src=chroot/crazy_pipework
+
 echo searching for dependencies...
 bin=(
 	`
 		./gen_deps.sh \
-			crazy_pipework/bin/client \
-			crazy_pipework/main \
-			crazy_pipework/bin/curses \
-			crazy_pipework/bin/data \
-			crazy_pipework/bin/file \
-			crazy_pipework/bin/include \
-			crazy_pipework/bin/in \
-			crazy_pipework/bin/mod \
-			crazy_pipework/bin/net \
-			crazy_pipework/bin/out \
-			crazy_pipework/bin/user \
-			crazy_pipework/cassettes/galax/games/galax.sh \
-			crazy_pipework/cassettes/galax2/games/galax.sh 
+			$src/bin/client \
+			$src/main \
+			$src/bin/curses \
+			$src/bin/data \
+			$src/bin/file \
+			$src/bin/include \
+			$src/bin/in \
+			$src/bin/mod \
+			$src/bin/net \
+			$src/bin/out \
+			$src/bin/user \
+			$src/cassettes/galax/games/galax.sh \
+			$src/cassettes/galax2/games/galax.sh 
 	`
 
 	`
