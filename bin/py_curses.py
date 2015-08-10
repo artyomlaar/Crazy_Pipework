@@ -7,6 +7,7 @@ import os
 import signal
 import time
 import random
+from distutils.version import LooseVersion, StrictVersion
 
 ptrn1=re.compile(r'^pr:([^:]*):([^:]*):([^:]*)')
 ptrn2=re.compile(r'^ref')
@@ -74,6 +75,7 @@ progbar={}
 progbarmax={}
 lowerhalf="\xe2\x96\x84"
 palette={}
+no_part_sprites=True
 
 for i in range(8): # TODO: add alpha support (color_id=-1)
 	ca.append([])
@@ -160,6 +162,10 @@ def on_exit():
 def send_win_size():
 	(y,x)=cs.getmaxyx()
 	(x,y)=get_user_coords(x, y)
+	# if curses.version < LooseVersion("2.2"): # Can't handle sprite parts.
+	if no_part_sprites:
+		x=x//16*16	# Tell user screen x, y are products of 16.
+		y=y//16*16
 	output("user:resize:"+str(x)+":"+str(y)+"\n")
 	output("user:scr:resize:"+str(x)+":"+str(y)+"\n") # TODO !
 

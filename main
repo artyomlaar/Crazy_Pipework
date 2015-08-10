@@ -2,7 +2,7 @@
 
 HOME=${HOME-/home/`whoami`} # home is unset when run from xinetd
 PIPEDIR="${pdir-"`dirname $0`/pipe/$$"}" # it can be set from server.bash
-export ISPEED=60
+export ISPEED=120
 export PATH=/bin:/crazy_pipework/misc
 #export COREPID=$$
 

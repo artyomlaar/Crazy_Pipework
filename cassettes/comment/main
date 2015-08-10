@@ -37,23 +37,32 @@ drawmenu()
 	done
 }
 
+launch()
+{
+	board=`game_from_id $a` \
+	boardname=`name_from_id $a` \
+	./view_board
+}
 proc_cmd()
 {
 	if [[ $1 =~ ^user:key=.* ]]
 	then
 		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
-		if [ "$k" = "w" -a $a -gt $min ]
+		if [ "$k" = "w" ]
 		then
-			((a--))
-		elif [ "$k" = "s" -a $a -lt $max ]
+			try_dec_a
+		elif [ "$k" = "s" ]
 		then
-			((a++))
-
+			try_inc_a
+		elif [ "$k" = $'\e' ]
+		then
+			read_ctrl
+		elif [ "$k" = $'\r' ]
+		then
+			launch
 		elif [ "$k" = "1" ]
 		then
-			board=`game_from_id $a` \
-			boardname=`name_from_id $a` \
-			./view_board
+			launch
 		elif [ "$k" = "q" ]
 		then
 			#echo "out:print:$(tput sgr0; clear)"

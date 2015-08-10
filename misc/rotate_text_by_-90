@@ -1,0 +1,10 @@
+#!/bin/perl
+
+@a=<>; 
+
+for ($i=0; $i<length($a[0])-1; $i++) {
+	for (reverse @a) {
+		print substr $_, $i ,1
+	}
+	print "\n"
+}

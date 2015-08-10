@@ -1,0 +1,24 @@
+#!/bin/bash
+
+def_skin=../comment/skin/1426860753818.skin
+skin="${2-$def_skin}"
+
+outf=/tmp/out-$XSID
+
+echo out:printc:Select sprite, then edit the level. To quit, exit the selection dialog with \"q\".
+
+while pic_select $skin
+do
+	read
+	IFS= REPLY="`fields $REPLY 3`"
+
+	EDIT_MSG="This is a level map. Every char here is a sprite from the skin file.
+You selected sprite \"${REPLY}"\". \
+	POST=$outf \
+	SAVE_POS=1 \
+	readlines
+done
+
+rotate_text_by_-90 <$outf >"$1"
+
+exit 0

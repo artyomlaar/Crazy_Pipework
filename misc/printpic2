@@ -3,7 +3,6 @@
 #lh=`echo -n $'\xe2\x96\x84'|iconv -f utf8`
 lh=▄
 
-(
 sed -n 's/^curses:defspr:\([^:]\)*:\([^:]\)*://p' "$1" |
 while read a && read b
 do
@@ -20,8 +19,6 @@ done
 #echo -en "\e[$((j))A"
 #echo -en "\e[$((j?2:1))A"  no new line after pic
 ((j)) && echo -en "\e[A"
-echo -en "\e[39m"
-echo -en "\e[49m"
-echo 
-)|
-sed 's/^/out:printl:/'
+#echo -en "\e[39m"
+#echo -en "\e[49m"
+#echo

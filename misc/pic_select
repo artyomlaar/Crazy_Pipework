@@ -1,0 +1,168 @@
+#!/bin/bash
+
+tnumpic=0
+cur=0
+cur_x=0
+cur_y=0
+start_show_ln=0
+tilesz=16
+mgn_w=0
+mgn_h=0
+pics_per_ln=1
+echo -e "out:print:\e[0m"
+resize
+tile_w=$((tilesz+2*mgn_w))
+
+PICSEL_TILE=1
+
+setpics_ln()
+{
+	if [ $PICSEL_TILE ]
+	then
+		pics_per_ln=$((COLS/tile_w))   # + arrows
+		(( tile_w2 = tile_w + (COLS - pics_per_ln * tile_w) / pics_per_ln ))
+	else
+		pics_per_ln=1
+	fi
+}
+
+setpics_ln
+
+if [ -d $1 ]
+then
+	picname=( $1/*.crs )
+else
+	picname=( `cut -d= -f2 $1` )
+	cut -d= -f1 $1 | sed 's/^/user:set_sprname:/'
+fi
+
+echo "user:repaint" 
+
+for i in ${picname[@]}
+do
+#	echo out:printc:printpic2 $i
+	pic[tnumpic++]="$(printpic2 $i)"
+	#pic[tnumpic]="$(printpic2 $i | sed 's/^/out:printc:/')"
+#	echo "${tpic[numpic]}"
+done
+
+numpic=${#pic[@]}
+
+curof()
+{
+	echo $(($2*pics_per_ln+$1))
+}
+
+defined()
+{
+	[ "${pic[$1]}" ]
+}
+
+draw_pic()
+{
+#	sel="   "
+#	sel2="   "
+	scr_orgn=1
+
+	#x=$((j*tile_w2+1+tile_w2-tile_w))
+	x=$(( j * tile_w2 + scr_orgn ))
+
+	tile_rows=$(( tilesz / 2 ))
+	i_shifted=$(( i - start_show_ln - sh ))
+	# FIXME: this causes the sprite overlap.
+	i_fold_to_scr=$(( i_shifted % lns_on_scr ))
+	i_scaled=$(( tile_rows * i_fold_to_scr ))
+	y=$(( i_scaled + scr_orgn ))
+
+	if (( y + tile_rows > ROWS + scr_orgn ))
+	then
+		return
+	fi	
+	if (( y > ROWS )) # don't draw pics that don't fit
+	then
+		return
+	fi
+
+#	cur=$((i+start_show_ln))
+	cur=`curof $j $i`
+
+#	((i==cur_y && j==cur_x)) && sel=">>>" && sel2="<<<"
+#	echo out:printc:i=$i j=$j x=$x y=$y cur_x=$cur_x cur_y=$cur_y cur=$cur defined=$(defined $cur; echo $((!$?)) )
+
+	echo -e "out:print:\e[${y};${x}H"
+	# No newline before pic no. 1
+	#((i)) && echo -e "out:print:\e[B\e[G"
+
+	# Add new lines before every line except line 1
+	echo "${pic[cur]}" | sed	-e "s/^/out:print:$sel/" \
+				-e "s/$/$sel2/" \
+				-e "2,\$s/^out:print:/out:print:\x1b[B\x1b[${x}G/"   # was ...\e[${tile_w}D
+	if ((i==cur_y && j==cur_x))
+	then
+		echo -e "out:print:\e[${y};${x}HV"
+	else
+		echo -e "out:print:\e[${y};$((x+tile_w/2-1))H${sprname[cur]}"
+	fi
+}
+
+show()
+{
+	resize
+	setpics_ln
+	max_lns_on_scr=$((2*ROWS/(tilesz+2*mgn_h)))
+	#mgn_h=
+	echo out:print:`clear`
+	lns_on_scr=`max $max_lns_on_scr $((numpic%pics_per_ln))`
+	for ((i=start_show_ln; i<lns_on_scr+start_show_ln; i++))
+	do
+		for ((j=0; j<pics_per_ln; j++))
+		do
+			draw_pic
+		done
+	done
+}
+proc_cmd()
+{
+	if [ "$1" = "user:key=q" ]
+	then
+		exit 1
+	elif [ "$1" = "user:key=w" ]
+	then
+		((cur_y && cur_y--))
+		((cur_y<start_show_ln)) && ((start_show_ln--))
+	elif [ "$1" = "user:key=s" ]
+	then
+		defined $(curof $cur_x $((cur_y+1)) ) && 
+			((cur_y+1<$numpic)) && ((cur_y++))
+		((cur_y>=start_show_ln+max_lns_on_scr)) && ((start_show_ln++))
+	elif [ "$1" = "user:key=a" ]
+	then
+		((cur_x && cur_x--))
+	elif [ "$1" = "user:key=p" ]
+	then
+		((start_show_ln++))
+	elif [ "$1" = "user:key=P" ]
+	then
+		((start_show_ln--))
+	elif [ "$1" = "user:key=d" ]
+	then
+		defined $(curof $((cur_x+1)) $cur_y) && 
+			((cur_x+1<$pics_per_ln && cur_x++))
+	elif [ "$1" = "user:key= " ]
+	then
+		#echo out:printc:selection: x=$x y=$y cur_y=$cur_y n=$numpic ${picname[$(curof $cur_x $cur_y)]}
+		#read
+		tcur=$(curof $cur_x $cur_y)
+		echo user:pic_select:${sprname[tcur]}:${picname[tcur]}
+		exit 0
+	elif [[ $1 = user:set_sprname:* ]]
+	then
+		sprname[${#sprname[@]}]="${1#user:set_sprname:}"
+		return
+	fi
+
+	show
+}
+
+#show
+while IFS= read -r c; do proc_cmd "$c"; done

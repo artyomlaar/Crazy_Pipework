@@ -1,9 +1,10 @@
 #!/bin/bash
 
 echo "out:printl:inside"
+echo "out:printl:$TARGET|$POST|$FILE|$PIC"
 
-pic_file=`perl -e 'use Time::HiRes; printf "%.06f.crs", Time::HiRes::time' |
-sed 's/\.//'`
+#pic_file=`perl -e 'use Time::HiRes; printf "%.06f.'"$FILE_EXT"'", Time::HiRes::time' |
+#sed 's/\.//'`
 
 maxlines=20
 maxchars=1920
@@ -40,7 +41,7 @@ then
 fi
 
 perl -e '
-	$pic_id=q('"$pic_file"');
+	$file=q('"$FILE"');
 	while (<STDIN>) {
 		$post .= $_;
 	}
@@ -49,10 +50,6 @@ perl -e '
 	$post =~ s/[\x00-\x1f]//g;
 #	if (!$post) { $post="\n" }
 	printf "%d001@%05d@%s@%s\n", 
-	        time(), $ENV{XSID}, $post, $pic_id;
+	        time(), $ENV{XSID}, $post, $file;
 
 ' <$POST >>$TARGET
-
-cat $PIC >./pic/$pic_file &&
-	rm $POST $PIC
-

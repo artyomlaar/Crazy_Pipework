@@ -1,1 +1,1 @@
-bash ls dirname tput clear cut reset basename wc grep
+bash ls dirname tput clear cut reset basename wc grep sort

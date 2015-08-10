@@ -1,0 +1,223 @@
+#!/bin/bash
+script_dir="`dirname $0`"
+
+min=1
+a=1
+bgcolor=${menu_bg-4}
+fgcolor=${menu_fg-9}
+list="$script_dir"/edit_skin_opts
+max=`wc -l <$list`
+declare -A spr_list
+filename="$1"
+pic_dir="$2"
+rows=`stty size <&$stdin | cut -d\  -f1`
+tskin=/tmp/$XSID-skin
+
+game_from_id()
+{
+	sed -n $1p $list | cut -f1
+}
+
+name_from_id()
+{
+	sed -n $1p $list | cut -f2
+}
+
+isort()
+{
+	for ((j=i<${#sprname[@]}-1; j; j--))
+	do
+		for ((i=0; i<j; i++))
+		do
+			if [ "${d[i]}" \> "${d[i+1]}" ]
+			then
+				t="${d[i]}"
+				t2="${d[i]}"
+				d[i]="${d[i+1]}"
+				d[i]="${d[i+1]}"
+				d[i+1]="$t"
+				d[i+1]="$t"
+			fi
+		done
+	done
+}
+
+drawmenu()
+{
+	echo -e "out:print:\e[4${bgcolor}m"
+	echo -e "out:print:\e[3${fgcolor}m"
+	echo out:print:`clear``tput bold`
+	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
+	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
+
+	for ((i=min; i<=max; i++ ))
+	do 
+		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `name_from_id $i | 
+		while read name
+		do
+			echo "$name" |tr a-z A-Z
+		done`\e[1E"
+	done
+}
+
+save()
+{
+	for i in "${!spr_list[@]}"
+	do
+		echo "${i#_}=${spr_list[$i]}"
+	done
+}
+
+load()
+{
+	echo debug: trying to load $1
+	while read l
+	do
+		spr_nm="`cut -d= -f1 <<<"$l"`"
+		crs_file="`cut -d= -f2- <<<"$l"`"
+		
+		spr_list["$spr_nm"]="$crs_file"
+	done < "$1"
+}
+
+select_temp()
+{
+	save |		 # Or don't sort. 
+	LANG= sort >$tskin
+	pic_select $tskin
+	rm $tskin 
+}
+
+choose()
+{
+#	echo out:print:11=$1=11
+	case "$1" in
+	v)	
+		mode=view; select_temp ;;
+
+	a)	ttxt=/tmp/$XSID-sprname
+		EDIT_MSG="Enter sprite name. One character for map skins." \
+		POST=$ttxt \
+		SINGLE_LINE=1 \
+		readlines
+		sprn="`cat $ttxt`"
+		rm $ttxt
+
+		#echo "out:printc:`clear`Enter sprite name:"
+		#IFS= read -r; sprn="${REPLY#user:key=}"
+		mode=add;  pic_select $pic_dir ;;
+
+	d)	mode=del; select_temp ;;
+
+#	e)	mode=edit; select_temp ;;
+
+	r)	mode=replace; select_temp ;;
+
+	c)	unset spr_list
+		declare -A spr_list
+		;;
+	s)	save | LANG= sort >"$filename"
+		echo "debug:pwd=$PWD; file=$filename"
+		#save | sed 's/^/out:printc:/'
+		if [ "$crs_saved" ] && [ "$crs_saved" == 1 ]
+		then
+				# A signal to keep the file
+			echo >$crs_file2.DONT_DELETE
+		fi
+
+		exit 0		# To signal that the skin was saved
+#		read
+		;; 
+	esac
+	drawmenu
+}
+
+nameof()
+{
+	for i in "${!spr_list[@]}"
+	do
+		if [ "${spr_list[$i]}" = "$1" ]
+		then
+			echo "$i"
+			#echo "${i#_}"
+		fi
+	done
+}
+
+pic_selection()
+{
+	#local mode=$1
+	local pic=$2
+
+	case $mode in
+	view) 	crs_file2="${filename%.skin}.crs"
+	 	crs_file2="${crs_file2/skin/pic}"
+		cp $pic $crs_file2
+		draw $crs_file2
+		crs_saved=$((! $?))
+		if [ "$crs_saved" == 1 ]
+		then
+			spr_list["`nameof $pic`"]=$crs_file2
+		fi
+		;;
+	replace)
+		replaced=$pic
+		mode=replace2
+		pic_select ../comment/pic/
+		;;
+	replace2)
+		spr_list["`nameof $replaced`"]=$pic
+		;;
+	add) spr_list[_$sprn]=$pic ;;
+	del) 
+		#echo "out:printc:name=`nameof $pic`-"
+		#echo "out:printc:name=${spr_list["`nameof $pic`"]}-"
+		unset spr_list["`nameof $pic`"]
+		#echo "out:printc:name=${spr_list["`nameof $pic`"]}-"
+		#read
+		# FIXME: can't unset a[ ]
+		;;
+	esac
+
+	drawmenu
+}
+
+proc_cmd()
+{
+	if [[ $1 =~ ^user:key=.* ]]
+	then
+		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
+		if [ "$k" = "w" -a $a -gt $min ]
+		then
+			((a--))
+			drawmenu
+		elif [ "$k" = "s" -a $a -lt $max ]
+		then
+			((a++))
+			drawmenu
+		elif [ "$k" = "1" ]
+		then
+			selection=`game_from_id $a`
+			choose $selection
+		elif [ "$k" = "q" ]
+		then
+			#echo "out:print:$(tput sgr0; clear)"
+			exit 1		# To signal that the skin wasn't saved
+		fi
+	elif [[ $1 =~ ^user:init ]]
+	then
+		sleep 1
+			echo -ne out:print:"\033[44m"
+		drawmenu
+	elif [[ $1 =~ ^user:pic_select: ]]
+	then
+		pic="`fields "$1" 4`"
+		pic_selection $mode $pic
+	fi
+}
+
+echo -e "mod:use:in&&out"
+
+load "$filename"
+
+while read cmd; do proc_cmd $cmd; done

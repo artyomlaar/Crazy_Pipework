@@ -8,7 +8,26 @@ fgcolor=${menu_fg-9}
 list=post_opts
 max=`wc -l <$list`
 
+fname=`timestamp`
+
+picdir=../comment/pic
+mapdir=../comment/map
+skindir=../comment/skin
+
+pic_filename=${picdir}/${fname}.crs
+
 rows=`stty size <&$stdin | cut -d\  -f1`
+
+editmsg="This is a beta version. Because of the bugs, YOUR POST may be LOST.
+SAVE your posts LOCALLY!"
+
+#THREAD_F=board/$board/$THREAD
+THREAD_F=../comment/board/$board/$THREAD
+POST=./tmp/$XSID-text
+#PIC=./tmp/$XSID-pic
+TARGET=$THREAD_F
+export THREAD_F POST TARGET
+#declare -A addit_text  
 
 game_from_id()
 {
@@ -20,34 +39,328 @@ name_from_id()
 	sed -n $1p $list | cut -f2
 }
 
+draw_cursor()
+{
+	if [ $i = $a ]
+	then
+		echo -e "\e[2D-\e[C"
+	fi
+}
+
+to_caps()
+{
+	while read name
+	do
+		echo "$name" |tr a-z A-Z
+	done
+}
+
+print_re_file()
+{
+	local re="`get_links_file $c_post $1`"
+	echo ">>${re:-DEFAULT}"
+	#echo "RE:>>${re:-DEFAULT}"
+}
+
+get_addit_text()
+{
+	case $1 in
+	(draw)		echo "`print_re_file crs`" ;;
+	(map | skin)	echo "`print_re_file $1`" ;;
+	esac
+}
+
+addit_text()
+{
+	if [ ! "${addit_text[$1]}" ]  # If not set
+	then
+		addit_text[$1]=`get_addit_text $1`
+		echo 1st ---
+	fi
+	echo ${addit_text[$1]}
+}
+
+init_addit_text()
+{
+	for ((i=min; i<=max; i++ ))
+	do
+		local name="`name_from_id $i`"
+		addit_text[$i]=`get_addit_text $name`
+		#addit_text[$name]=`get_addit_text $name`
+	done
+}
+
+get_changed_status()
+{
+	local lext
+	local dir
+
+	case $1 in
+		draw)	dir=$picdir;  lext=crs  ;;
+		map)	dir=$mapdir;  lext=map  ;;
+		skin)	dir=$skindir; lext=skin ;;
+	esac
+
+	if [ -e "${dir}/${fname}.${lext}" ]
+	then
+		#echo -n +
+		echo -n ", SAVED"
+	fi
+	if [ "$ext" == "$lext" ]
+	then
+		#echo '*'
+		echo ', SELECTED'
+	fi
+}
+
+upd_changed_status()
+{
+	for ((i=min; i<=max; i++ ))
+	do
+		local name="`name_from_id $i`"
+		changed_status[$i]=`get_changed_status $name`
+	done
+}
+
+print_info()
+{
+	local text="${addit_text[$1]}${changed_status[$1]}"
+	if [ "$text" ]
+	then
+		echo "($text)"
+	fi
+}
+
 drawmenu()
 {
 	echo -e "out:print:\e[4${bgcolor}m"
 	echo -e "out:print:\e[3${fgcolor}m"
 	echo out:print:`clear``tput bold`
 	echo -e "out:print:\e[$((rows-1));18H W, S, D, A TO MOVE, 1 TO ENTER"
-	echo -e "out:print:\e[2;20H $max IN 1\e[2E"
+	echo -e "out:print:\e[2;20H REPLYING TO POST #$c_post\e[2E"
+	# echo -e "out:print:\e[2;20H $max IN 1.\e[2E"
 
 	for ((i=min; i<=max; i++ ))
 	do 
-		echo -e "out:print:\e[15C$([ $i = $a ] && echo -e "\e[2D-\e[C")$i `name_from_id $i | 
-		while read name
-		do
-			echo "$name" |tr a-z A-Z
-		done`\e[1E"
+		local name="`name_from_id $i`"
+		echo -e "out:print:\e[15C`draw_cursor`$i `to_caps <<<"$name"\
+			` `print_info $i`\e[1E"
 	done
+}
+
+get_message_field()
+{
+	sed -n "$(($1+1))s/\([^@]*@\)\{$2\}\([^@]*\).*/\2/p" <$THREAD_F
+}
+
+get_post()
+{
+	get_message_field $1 2
+}
+
+get_file()
+{
+	get_message_field $1 3
+}
+
+# Only reads 1-st link in the message text
+
+get_post_link()
+{
+	post="`get_post $1`"
+	link=`sed -n 's/.*>>\([0-9]\+\).*/\1/p' <<<$post`
+
+	# TODO: To compare posts in different threads, read their timestamps.
+
+	if [ "$link" ] && [ "$link" -lt $1 ]
+	then
+		echo $link
+	fi
+}
+
+get_links_file()
+{
+	if [ ! "$1" ] || [ ! "$2" ]
+	then
+		return
+	fi
+	file=`get_file $1`
+#	echo out:printc:DEBUG: link=$1, ext=$2 file=$file
+	if [[ "$file" == *.$2 ]]
+	then
+		echo $1
+		#echo $file
+	else
+		link=`get_post_link $1`
+#		echo out:printc:DEBUG: link=$1, recur 
+		get_links_file $link $2
+	fi
+}
+
+get_path()
+{
+	case "$1" in
+		(*.crs)		echo "pic/$1"	;;
+		(*.map)		echo "map/$1"	;;
+		(*.skin)	echo "skin/$1"	;;
+	esac
+}
+
+rm_temp()
+{
+	if [ $2 != crs ]
+	then
+		local file="`get_path "$1.crs"`"
+		if [ -e "$file.DONT_DELETE" ]
+		then 
+			rm "$file.DONT_DELETE" 
+		else
+			rm $file
+		fi
+	fi
+	if [ $2 != map ]
+	then
+		local file="`get_path "$1.map"`"
+		rm $file
+	fi
+	if [ $2 != skin ]
+	then
+		local file="`get_path "$1.skin"`"
+		rm $file
+	fi
+
+	rm $POST 
+}
+
+file_reply()
+{
+#	get_links_file $c_post $1
+#	read
+#	exit
+	post="`get_links_file $c_post $1`"
+	file="`get_file $post`"
+	file_reply="`get_path "$file"`"
+	echo "$file_reply"
+}
+
+atch_find_replied_file()
+{
+	:
+}
+
+atch_on_choose()
+{
+	:
+}
+
+atch_after_choose()
+{
+	:
+}
+
+atch_after_submit()
+{
+	:
+}
+
+atch_on_exit()
+{
+	#TODO: remove tmp files
+	rm ${POST}.pos
+}
+
+open()
+{
+	PROG=$1
+	FILE=$2
+	TYPE=$3
+	ARG2=$4		# For map: skin to use while editing the map.
+			# For skin: directory with pictures to choose from. 
+	
+	if [ -e $FILE ]
+	then 
+		$PROG $FILE $ARG2
+	else
+		file_reply=../comment/"`file_reply $TYPE`"
+
+#	post="`get_links_file $c_post $TYPE`"
+#	file="`get_file $post`"
+#	file_reply="`get_path "$file"`"
+
+	#	echo out:printc:f_r=$file_reply - $post - $file - $TYPE $c_post
+		if [ "$file_reply" ]
+		then
+			cp $file_reply $FILE
+		fi
+		if ! $PROG $FILE $ARG2	# File not saved
+		then
+			rm $FILE
+		fi
+	fi
 }
 
 choose()
 {
 #	echo out:print:11=$1=11
 	case "$1" in
-	p) ./post ;;
-	d) draw $PIC ;;
-	s) ./submit; exit ;; 
-#	d) draw ../cassettes/comment/board/0/mypic ;;
-#	d) draw board/0/mypic ;;
+	p) 
+		SAVE_POS=1 \
+		EDIT_MSG=$editmsg readlines
+		;;
+	d)
+		FILE=$pic_filename
+		open draw $FILE crs
+		ext=crs
+		;;
+	l) 
+		pic_select ./pic/; ext=crs
+		;;
+	s) 
+		FILE=${fname}.${ext}
+
+		if [ -e "`get_path $FILE`" ]
+		then
+			FILE=$FILE ./submit
+		else
+			FILE='' ./submit
+		fi
+
+		rm_temp $fname $ext
+
+#		echo debug777: cat $PIC === ./pic/$FILE
+#		echo debug777: FILE=${fname}.${ext} ./submit
+#		if [ "$PIC" ]
+#		then
+#		        cat $PIC >./pic/$FILE &&
+#                	rm $PIC
+#		fi
+		exit
+		;; 
+	m) 
+		FILE=${mapdir}/${fname}.map
+		skin="`file_reply skin`"
+		open edit_map $FILE map $skin
+		ext=map;
+		;;
+	k) 
+		FILE=${skindir}/${fname}.skin 
+		PIC_DIR=../comment/pic/
+		open edit_skin $FILE skin $PIC_DIR
+		ext=skin;
+		;;
+	o)
+		cd ../platform
+		MAP_FILE=../comment/`file_reply map` ./platform
+		cd - >/dev/null
+		;;
 	esac
+}
+
+launch()
+{
+	selection=`game_from_id $a`
+	choose $selection
+	upd_changed_status
 }
 
 proc_cmd()
@@ -55,20 +368,25 @@ proc_cmd()
 	if [[ $1 =~ ^user:key=.* ]]
 	then
 		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
-		if [ "$k" = "w" -a $a -gt $min ]
+		if [ "$k" = "w" ]
 		then
-			((a--))
-		elif [ "$k" = "s" -a $a -lt $max ]
+			try_dec_a
+		elif [ "$k" = "s" ]
 		then
-			((a++))
-
+			try_inc_a
 		elif [ "$k" = "1" ]
 		then
-			selection=`game_from_id $a`
-			choose $selection
+			launch
+		elif [ "$k" = $'\r' ]
+		then
+			launch
+		elif [ "$k" = $'\e' ]
+		then
+			read_ctrl
 		elif [ "$k" = "q" ]
 		then
 			#echo "out:print:$(tput sgr0; clear)"
+			atch_on_exit
 			exit
 		fi
 		drawmenu
@@ -77,9 +395,39 @@ proc_cmd()
 		sleep 1
 			echo -ne out:print:"\033[44m"
 		drawmenu
+	elif [[ $1 =~ ^user:pic_select ]]
+	then
+		pic="`fields "$1" 4`"
+		cp ../comment/$pic $pic_filename
 	fi
 }
 
+#TODO: spread this code into menu options
+
+prepare_post()
+{
+	echo ">>$c_post" >$POST
+	post="`get_post $c_post`"
+	sed 's/\(\\n\)*$//' <<<"$post" |
+		sed 's/\\n/\n/g' |
+		sed '/^>/d' |
+		sed 's/^/>/' >>$POST
+	#	sed '$s/$/\n/' >$POST
+}
+
+
+
+init()
+{
+	init_addit_text
+	prepare_post
+	wc -c <$POST >${POST}.pos
+	ext=crs
+	#file_reply crs
+}
+
 echo -e "mod:use:in&&out"
+
+init
 
 while read cmd; do proc_cmd $cmd; done

@@ -40,30 +40,40 @@ drawmenu()
 	done
 }
 
+launch()
+{
+	chs="`game_from_id $a`"
+	cd "$chs"
+	./main || ./"$chs"
+	cd - &>/dev/null # Would echo CWD
+}
+
 proc_cmd()
 {
 	if [[ $1 =~ ^user:key=.* ]]
 	then
 		k=`echo $1 | sed 's/^user:key=\(.*\)/\1/'`
-		if [ "$k" = "w" -a $a -gt $min ]
+		if [ "$k" = "w" ]
 		then
-			((a--))
-		elif [ "$k" = "s" -a $a -lt $max ]
+			try_dec_a
+		elif [ "$k" = "s" ]
 		then
-			((a++))
-
+			try_inc_a
 		elif [ "$k" = "1" ]
 		then
-			chs="`game_from_id $a`"
-			cd "$chs"
-			./main || ./"$chs"
-			cd - &>/dev/null # echoes CWD
+			launch
 		elif [ "$k" = "q" ]
 		then
 			echo "out:print:$(tput sgr0; clear)"
 			echo -e "out:print:\x01exit\x02"
 			kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
 			exit
+		elif [ "$k" = $'\e' ]
+		then
+			read_ctrl
+		elif [[ "$k" =~ ^$'\r'?$ ]]  # No telnet, no \r.
+		then
+			launch
 		fi
 		drawmenu
 	elif [[ $1 =~ ^user:init ]]

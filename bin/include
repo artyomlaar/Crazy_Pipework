@@ -95,3 +95,43 @@ fields()
 	done
 }
 export -f fields
+
+resize()
+{
+#	command resize
+#	ROWS=$LINES
+#	COLS=$COLUMNS
+	ROWS=`stty size <&$stdin | cut -d\  -f1`
+	COLS=`stty size <&$stdin | cut -d\  -f2`
+}
+export -f resize
+
+try_inc_a()
+{
+        if [ $a -lt $max ]
+        then
+                ((a++))
+        fi
+}
+export -f try_inc_a
+
+try_dec_a()
+{
+        if [ $a -gt $min ]
+        then
+                ((a--))
+        fi
+}
+export -f try_dec_a
+
+read_ctrl()
+{
+        read_ctrl_key
+        case $CTRL_KEY in
+	        (Up) try_dec_a ;;
+	        (Down) try_inc_a ;;
+        	(Home) a=$min ;;
+        	(End) a=$max ;;
+	esac
+}
+export -f read_ctrl

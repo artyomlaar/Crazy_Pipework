@@ -1,0 +1,5 @@
+#!/bin/bash
+precision=3
+echo `perl -e 'use Time::HiRes; printf "%.0'$precision'f", Time::HiRes::time' |
+sed 's/\.//'`
+

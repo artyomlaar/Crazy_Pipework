@@ -1,0 +1,186 @@
+#!/bin/bash
+
+echo -e "out:print:\e[H\e[2J"
+
+echo "$EDIT_MSG" | sed 's/^/out:printc:/'
+
+[ $SAVE_POS ] && curpos=`<${POST}.pos`
+
+if [ $SINGLE_LINE ]
+then
+	echo "out:printc:Press Enter to finish."
+else
+	echo "out:printc:Press Ctrl+Z to finish."
+fi
+
+newline_seq="`echo -en "\nout:printl:\e[G\e[K"`"
+
+cread()
+{
+	IFS= read -r c
+	c="${c#user:key=}"
+}
+
+start_of_line()
+{
+	for (( i=curpos-1; i>=0; i-- ))
+	do
+		if [ "${b:$i:1}" = $'\r' ]
+		then
+			break
+		fi
+	done
+	echo $((i+1))
+}
+
+end_of_line()
+{
+	for (( i=curpos; i<len; i++ ))
+	do
+		if [ "${b:$i:1}" = $'\r' ]
+		then
+			break
+		fi
+	done
+	echo $i
+}
+
+min()
+{
+	echo $(($1<$2?$1:$2))
+}
+
+set_real_ln_pos()
+{
+	real_ln_pos=$((curpos-`start_of_line`))
+}
+
+line_up()
+{
+#	curpos=`start_of_line`
+	sol=`start_of_line`
+	ln_pos=$((curpos-sol))
+	end_prev_ln=$((sol-1))
+	curpos=$end_prev_ln
+	start_prev_ln=`start_of_line`
+	curpos=`min $((start_prev_ln+real_ln_pos)) $end_prev_ln`
+	((curpos<0)) && ((curpos=0))
+}
+
+line_down()
+{
+	#curpos=`end_of_line`
+	start_next_ln=$((`end_of_line`+1))
+	curpos=$start_next_ln
+	curpos=`min $((start_next_ln+real_ln_pos)) $(end_of_line)`
+}
+
+copy_line()
+{
+	start_cp_ln=$(start_of_line)
+	end_cp_ln=$(end_of_line)
+	cp_len=$((end_cp_ln-start_cp_ln))
+	cp_ln="${b:start_cp_ln:cp_len}"
+}
+
+paste_line()
+{
+	next_ln=$(( $(end_of_line) + 1 ))
+	b="${b:0:next_ln}${cp_ln}"$'\r'"${b:next_ln}"
+}
+
+kill_line()
+{
+	start_k_ln=$(start_of_line)
+	end_k_ln=$(end_of_line)
+	k_len=$((end_k_ln-start_k_ln))
+	b="${b:0:start_k_ln}${b:end_k_ln+1}"
+}
+
+ctrl_key()
+{
+	read_ctrl_key
+	case "$CTRL_KEY" in
+		(Up)	line_up ;;
+		(Down)	line_down ;;
+		(Left)	(((curpos--) || (curpos=0))); set_real_ln_pos ;;
+		(Right)	((curpos<len ? curpos++ : curpos)); set_real_ln_pos ;;
+		(Home)	curpos=0 ;;
+		(End)	curpos=len ;;
+		(Delete)	set_vars "" 1 ;;
+	esac
+}
+
+set_vars()
+{
+	bspce=$1
+	del=$2
+	bs_dif=$((curpos-bspce))
+	((bs_dif<0)) && ((bs_dif=0))
+	bs="${b:0:bs_dif}"
+	be="${b:curpos+del}"
+	b="${bs}${a}${be}"
+	bc="${bs}${a}_${be}"
+	sb="${bc//$'\r'/$newline_seq}"
+	echo -e "out:print:\e[4H"
+	echo "out:printc:$sb"
+	echo "out:printc:"
+}
+
+b="`cat <$POST; echo no_fld_nl`"
+b="${b%no_fld_nl}"
+b="${b//$'\n'/$'\r'}"
+set_vars
+
+on_exit()
+{
+	[ $SAVE_POS ] && echo $curpos > ${POST}.pos
+	break
+}
+
+while IFS= read -r a
+do
+	len=${#b}
+	a="${a#user:key=}"
+	if [ "_$a" = $'_\cz' ]
+	then
+		on_exit
+	elif [ "$a" = $'\x7f' ]
+	then
+		a=""
+		set_vars 1
+		#(((curpos--))||((curpos=0)))
+		#(((curpos--)||(curpos=0)))
+		#((curpos--))
+		((--curpos<0)) && ((curpos=0))
+	elif [ "$a" = $'\e' ]
+	then
+		a=""
+		ctrl_key
+		set_vars
+	elif [ "$a" = $'\co' ]
+	then
+		copy_line
+	elif [ "$a" = $'\cp' ]
+	then
+		paste_line
+		a=""
+		set_vars
+	elif [ "$a" = $'\ck' ]
+	then
+		kill_line
+		a=""
+		set_vars
+	elif [ "$a" = $'\r' -a "$SINGLE_LINE" ]
+	then
+		on_exit
+	else
+		set_vars
+		((curpos++))
+		set_real_ln_pos
+	fi
+done
+
+b="${b//$'\r'/$'\n'}"
+echo "$b" >$POST
+

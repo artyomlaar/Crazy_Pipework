@@ -5,10 +5,6 @@ cd `dirname $0`
 clear=$'\x1b[0m\x1b[H\x1b[2J'
 postcount=board/$board/postcount
 echo "out:print:$clear"
-POST=tmp/${XSID}-text
-PIC=tmp/${XSID}-pic
-export POST PIC
-
 
 mk_thread()
 {
@@ -69,10 +65,10 @@ print_thread()
 	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down; n - new thread"
 	td="[0-9]\{2\}"
 	head -n1 <<<"$prs_scr" | 
-		grep -q "^out:printl:[^ ]\+$td$td-$td-$td $td:$td.*thread_" &&
+		grep -q "^out:printc:$td$td-$td-$td $td:$td.*thread_" &&
 		{
 			c_thread=$( head -n1 <<<"$prs_scr" | 
-				sed "s/^out:printl:[^ ]\+$td$td-$td-$td $td:$td.*thread_\([0-9]\+\).*/\1/" )
+				sed "s/^out:printc:$td$td-$td-$td $td:$td.*thread_\([0-9]\+\).*/\1/" )
 
 			echo "out:print:; r - reply"
 		}
