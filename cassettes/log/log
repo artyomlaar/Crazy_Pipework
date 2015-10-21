@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd ../../log
+pid=$$
+log_d=$(ls -t | sed -n 2p)
+#echo sed 's/^/out:printl:/' \< $log_d/main
+sed 's/^/out:printl:/' < $log_d/main; #kill $pid) &
+#echo out:printl:hi
+wait_flush

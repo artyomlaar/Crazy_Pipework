@@ -23,7 +23,7 @@ let b=0
 initscr()
 {
 	echo curses:bkgd:stdscr:1:6
-	echo curses:clr
+	echo curses:clear
 	echo curses:spr:ship:1:1
 	echo curses:prc:ship:0:0:7:6:$shipchar
 	drawship
@@ -56,7 +56,7 @@ drawship()
 
 render()
 {
-	echo "curses:clr"
+	echo "curses:clear"
 	echo "curses:prc:stdscr:19:1:6:1:$hit HIT, $miss MISSED, $c SECONDS, b=$b"	
 	for (( i=1; i<=gswidth; i++ ))
 	do
@@ -209,6 +209,7 @@ proc_cmd()
 	then
 		sleep .1
 		echo "out:send_cli_cmd:curses:start"
+		echo "curses:cstart"
 		initscr
 		upd 1
 		echo -e "file:offer:mus:$PWD/../data/music.mod:mod"

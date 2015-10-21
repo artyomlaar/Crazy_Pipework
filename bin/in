@@ -72,4 +72,4 @@ proc_cmd()
 
 #echo "mod:use:blah blah"
 while read command; do proc_cmd $command; done
-
+echo debug:in terminated.

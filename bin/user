@@ -42,7 +42,11 @@ drawmenu()
 
 launch()
 {
-	chs="`game_from_id $a`"
+	chs=$1
+	if [ ! "$chs" ]
+	then
+		chs="`game_from_id $a`"
+	fi
 	cd "$chs"
 	if [ -x ./main ]
 	then
@@ -69,7 +73,7 @@ proc_cmd()
 			launch
 		elif [ "$k" = "q" ]
 		then
-			echo "out:print:$(tput sgr0; clear)"
+			# echo "out:print:$(tput sgr0; clear)"
 			echo -e "out:print:\x01exit\x02"
 			kill -2 -- 0 #-`ps --no-headers  p $$ -o %r`
 			exit
@@ -84,7 +88,19 @@ proc_cmd()
 	elif [[ $1 =~ ^user:init ]]
 	then
 		sleep 1
-			echo -ne out:print:"\033[44m"
+		if [[ $USER = select#* ]]
+		then
+			id="${USER#select#}"
+			if ((id))
+			then
+				a="$id"
+				launch
+			else
+				launch "$id"
+			fi
+			exit
+		fi
+		echo -ne out:print:"\033[44m"
 		drawmenu
 	fi
 }

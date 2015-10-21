@@ -49,7 +49,7 @@ ls $dir/
 echo Copying files
 mkdir -p $chrdir/$name
 cp -a ./* $chrdir/$name
-cp script/*.sh $dir
+cp script/* $dir
 cp script/*.txt $dir
 
 cp -r ./.git $chrdir/$name	# Copy Git repository
@@ -78,6 +78,8 @@ Defaults	env_keep+=CHROOTUID
 Defaults	env_keep+=CHROOTGID
 
 $user ALL=NOPASSWD: /home/$user/to_chroot.sh
+select\#* ALL=NOPASSWD: /home/$user/to_chroot.sh
+$user ALL=NOPASSWD: /home/$user/mk_alias
 eof
 
 echo Creating a chroot environment. This may take a while...

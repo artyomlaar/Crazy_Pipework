@@ -1,0 +1,87 @@
+#!/bin/bash
+
+passwd=/etc/passwd
+shadow=/etc/shadow
+sudoers=/etc/sudoers
+
+mk_alias() {
+	orig="$(grep ^$1: /etc/passwd)"
+	entry="$(cut -d: -f2- <<<"$orig")"
+	REAL_HOME="$(cut -d: -f6 <<<"$orig")"
+
+	if [ $# == 2 ]
+	then 
+		set -- "$1" "$2" "" 0 0
+		UO_NUM=1
+	fi
+
+	alias="$2"
+	if grep -q '[^a-z]' <<<"$alias"
+	then
+		echo $0: Invalid alias name. >&2
+		exit 1
+	fi
+
+	delim="$3"
+	if grep -q '[^#]' <<<"$delim"
+	then
+		echo $0: Invalid alias delimiter. >&2
+		exit 1
+	fi
+
+	for ((i=$4; i<=$5; i++))
+	do
+		i2=$i
+		[ NO_NUM ] && unset i2
+		echo "$alias$delim$i2:$entry" >> $passwd
+	done
+
+	orig="$(grep ^$1: /etc/shadow)"
+	entry="$(cut -d: -f2- <<<"$orig")"
+
+	for ((i=$4; i<=$5; i++))
+	do
+		i2=$i
+		[ NO_NUM ] && unset i2
+		echo "$alias$delim$i2:$entry" >> $shadow
+	done
+
+	if [ ! "$NO_SUDOERS" ]
+	then
+		a="*"
+		[ NO_NUM ] && unset a
+#		echo "$alias$delim$a ALL=NOPASSWD: $REAL_HOME/to_chroot.sh" >> $sudoers
+#		echo "$alias$delim$a ALL=NOPASSWD: $REAL_HOME/chroot/crazy_pipework/script/mk_alias" >> $sudoers
+
+
+		# FEXME: FILES NOT VISIBLE IN CHROOT. SUDO SCRIPTS CANT RUN.
+
+
+	fi
+}
+
+if [ $1 = -t ]
+then
+	shift
+	
+	passwd=/dev/stdout
+	shadow=/dev/stdout
+	sudoers=/dev/stdout
+fi
+
+if [ $# == 5 ]
+then 
+	mk_alias "$@"
+elif [ $# == 2 ]
+then
+	mk_alias "$1" "$2"
+else
+	echo "Usage:"
+	echo "	mk_alias [-t] user alias_name delim first_id last_id"
+	echo "	mk_alias [-t] user alias_name"
+	echo "Example:"
+	echo "	mk_alias root admin \# 1 2"
+	echo "Will add users:"
+	echo "	admin#1:x:0:0:root:/root:/bin/bash"
+	echo "	admin#2:x:0:0:root:/root:/bin/bash"
+fi

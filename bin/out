@@ -5,12 +5,12 @@ exec {savedstdout}>&1
 init_srv()
 {
 
-	echo -e "\e[?25l" # - HIDES CURSOR
+	echo -ne "\e[?25l" >&$stdout	# - HIDES CURSOR
 }
 onexit()
 {
 
-	echo -e "\e[?25h" # - SHOWS CURSOR
+	echo -ne "\e[?25h" >&$stdout	# - SHOWS CURSOR
 }
 
 send_cli_cmd()
@@ -78,13 +78,16 @@ proc_cmd()
 	then
 		send_cli_cmd "${1#"out:send_cli_cmd:"}"
 
+	elif [[ $1 =~ ^out:get_pos ]]
+	then
+		echo -ne "\e[6n" >&$stdout
 	elif [[ $1 =~ ^out:init ]]
 	then
 		echo "mod:get_stdout:out"
 		wait_for out:stdout= stdout
-		init_srv >&$stdout
+		echo debug:out:stdout=$stdout
+		init_srv 
 		echo "mod:ready:out"
-		return
 	fi
 }
 
@@ -94,4 +97,5 @@ trap 'onexit' EXIT INT QUIT TERM
 
 while IFS= read -r command; do proc_cmd "$command"; done
 
-onexit
+#echo debug:i #out terminated. # r=$REPLY 
+

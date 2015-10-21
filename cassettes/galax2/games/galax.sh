@@ -210,7 +210,13 @@ proc_cmd()
 	fi
 }
 
-echo "mod:use:out&&in&&net&&file"
+#echo "mod:use:out&&in&&net&&file"
+echo "mod:use:out&&in"
+
+sleep 5
+echo "out:printl:Today is `date`"
+sleep 5
+exit
 
 while read command; do proc_cmd "$command"; done 
 

@@ -184,17 +184,17 @@ inputpid=$!
 
 onexit()
 {
-	rm "$clidir"/cache/* 2>/dev/null
+	rm "$clidir"/cache/*	# 2>/dev/null
 	stty icanon <&$savedstdin
 	stty echo <&$savedstdin
 	{
 		kill $muspid $joypid $ncpid $curpid $inputpid 
 		kill `jobs -p`
-	} 2>/dev/null
-	wait 2>/dev/null # removes "terminated" message
+	}		# 2>/dev/null
+	wait		# 2>/dev/null # removes "terminated" message
 	rm_pipes
 	echo -ne "\x1b[?25h" # make cursor visible
-}
+} 2>/dev/null
 startmusic()
 {
 	local handle="`cut -d: -f1 <<<"$1"`"
@@ -507,6 +507,6 @@ tee >&${pipe[to_serv]} 2>/dev/null ${pipe[cmd]} <${pipe[resize]} &
 python $clidir/bin/py_curses.py <&${pipe[curses_fd_w]} 3>${pipe[resize]} 2>log/$XSID/curseserror
 
 rm -r "$pipedir"
-
+echo debug:client terminated.
 exit
 

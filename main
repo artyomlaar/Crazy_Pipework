@@ -11,7 +11,7 @@ export pdir="$PIPEDIR"
 export BINDIR=./bin
 export logdir=log/$XSID
 export menu_fg=7 menu_bg=4
-
+declare -A pidbyid cmdbypid
 mkdir $logdir
 
 cd `dirname $0`
@@ -33,19 +33,22 @@ $|++;
 $log=1;
 open DEBUG, ">'$logdir/main'";
 print DEBUG "0.000 debug: started at $^T\n";
+
 sub llog
 {
 	if (!$log) { return }
 	printf DEBUG "%0.3f ", Time::HiRes::time-$^T;
 	print DEBUG;
-	flush DEBUG;
+	flush DEBUG;	# Or delete it.
 }; 
-sub onexit
+sub on_exit
 {
-	print DEBUG "debug:main: User died ;_;\n";
+	print DEBUG "debug:main: perl main bus terminating...\n";
 	flush DEBUG;
 	close DEBUG;
 };
+#$SIG{INT} = &on_exit;
+#$SIG{TERM} = &on_exit;
 '
 
 readconfig1='while (<STDIN>) { /'"$cfg_ptrn"'/ && last };'
@@ -125,7 +128,7 @@ sub tryreadln
 sub readfds
 {
 	#perr("readfds: nrd=$nrd, nread=" . scalar( @read), 2);
-	if ($nrd == @read) {  # get new list of ready files if need to
+	if ($nrd == @read) {  # get new list of ready files if needed
 		#perr("poll...", 2);
 		$poll->poll;
 		@read = $poll->handles(POLLIN);
@@ -162,7 +165,7 @@ sub getln
 	while (1) {
 		#perr("getln-iter: _=$_, nlines=" . scalar(@lines), 1 );
 		if (@lines) {
-			$_ = shift @lines;  # continous stream of lines. multiplexes all files
+			$_ = shift @lines;  # continuous stream of lines. multiplexes all files
 			#perr("got line: $_", 1);
 			return True;
 		} else {
@@ -188,7 +191,9 @@ exec {stdin}<&0
 
 #trap 'tput sgr0; clear; echo killed; kill `ps|sed "1d;s/^ *//"|cut -f1 -d\ |grep -v $PPID`;' EXIT INT QUIT
 
-trap 'tput sgr0; clear; kill 0' EXIT INT QUIT
+#trap 'tput sgr0; clear; kill 0' EXIT INT QUIT
+trap 'kill 0' EXIT INT QUIT
+
 #trap 'tput sgr0; kill 0' EXIT INT QUIT
 
 source "$BINDIR/include"
@@ -243,7 +248,7 @@ mkptrn_pl()
 		echo -n "/^$p:/ && do { print $p; flush $p }; "
 	done
 	echo -n '/^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; '
-	echo -n "/^main:quit/ && do { onexit; kill 'KILL', -getpgrp() }; "
+#	echo -n "/^main:quit/ && do { on_exit; kill 'KILL', -getpgrp() }; "
 
 	echo -n "/^main:set_config/ && last ; "
 	echo -n '}; '
@@ -266,7 +271,11 @@ export stdin stdout
 
 { icmds; cat <$from_loop; } |  # tee log/bad1-$$ | # tee  >(cat >&$stdout) |
 perl -e "$init$poll$readconfig1$readconfig2" >&$to_loop
+
+#wait ${pidbyid[mod]} 
+
+wait
+
 rm -r "$PIPEDIR"
 
-echo main loop terminated
-
+#echo main loop terminated

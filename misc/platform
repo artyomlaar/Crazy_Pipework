@@ -1,9 +1,10 @@
 #!/bin/perl
 #!/usr/bin/env perl
 use Time::HiRes;
+use Safe;
 
-$scrw=5;
-$scrh=3;
+$scrw = 5;
+$scrh = 3;
 
 $spr_w = 1;  # Dimensions of a generic sprite. To be replaced with "sprite->{h}"
 $spr_h = 1;  # of each particular sprite, not same for all sprs like now.
@@ -44,6 +45,15 @@ sub draw_world;
 
 $object_created = 0;
 
+$compartment = new Safe;
+$compartment->permit(qw(time sort :browse print require));
+
+
+sub reval($)
+{
+        my $cmd = shift;
+        return $compartment->reval($cmd);
+}
 
 sub print_pl_coord
 {
@@ -56,6 +66,7 @@ sub print_pl_coord
 	print ", nscrx=$nscr=" . nscr($player->{x});
 	print ", nscry=$nscry=" . nscry($player->{y});
 	print ", oth_scr=" . $other_scr->{x} . "," . $other_scr->{y};
+	print ", scr_size=" . $scrw . "," . $scrh;
 	print "          \n";
 	print "curses:ref\n";
 }
@@ -219,6 +230,8 @@ sub low_draw
 	print "curses:mvs2:$sprite:$x:$y\n";
 }
 
+#reval q(
+
 package Player {
 sub new()
 {
@@ -323,7 +336,8 @@ sub new
 	my ($class, $x, $y) = @_;
 	my $self={};
 	bless($self, $class);
-	my $id = scalar @main::objects;
+	#my $id = scalar @main::objects;
+	my $id = main::get_objects_num();
 	$self->{x}=$x;
 	$self->{y}=$y;
 	$self->{id}=$id;
@@ -423,8 +437,8 @@ sub new
 	$self->{h}=1;
 	$self->{alive}=1;
 	$self->{visible}=0;
-	$self->{id} = scalar @main::objects;
-	#$self->{id}=scalar @main::klop;
+	$self->{id} = main::get_objects_num();
+	#$self->{id} = scalar @main::objects;
 	$self->{type}=$class;
 	$self->{move}+=@{$main::object{"klop"}{"move"}}[0];
 
@@ -551,6 +565,8 @@ sub update
 1;
 }
 
+#);
+
 sub nscr
 {
 	my $x = $_[0];
@@ -632,7 +648,9 @@ sub load_screen
 
 	unset_alarm();
 	draw_world($scr->{x}, $scr->{y}, True);
-	set_alarm();
+	if ($object_created) {
+		set_alarm();
+	}
 }
 
 sub change_screen
@@ -646,7 +664,9 @@ sub change_screen
 	if ($nscr!=$onscr or $nscry != $onscry){
 		unset_alarm();
 		draw_world;
-		set_alarm();
+		if ($object_created) {
+			set_alarm();
+		}
 		return 1
 	}
 
@@ -818,15 +838,6 @@ sub can_move
 							"BrokenBrick");
 					}
 
-					#my $b = new BrokenBrick($x, $y);
-					#push @broken_brick, $b;
-					#$b = new BrokenBrick($x, $y);
-					#push @broken_brick, $b;
-					#$b = new BrokenBrick($x, $y);
-					#push @broken_brick, $b;
-					#$b = new BrokenBrick($x, $y);
-					#push @broken_brick, $b;
-
 					draw_world;
 					return 0;
 				} else {
@@ -835,8 +846,6 @@ sub can_move
 				
 			} elsif ($sqr ~~ @box) {
 				if ($vy > 0 && !$obj_is_klop) {
-					#my $k = new Klop($i, $j + 1);
-					#push @klop, $k;
 					create_object($i, $j + 1, "Klop");
 					$world[$i][$j]="Z";
 					draw_world;
@@ -852,15 +861,11 @@ sub can_move
 		}
 	}
 
-	#if (!$obj_is_klop) {
-
 	if ($obj->{type} eq "Player") {
 		my $oex=$objx + $objw;
 		my $oey=$objy + 2*$objh;
 		my $ox=$objx;
 		my $oy=$objy;
-
-		#for my $k (@klop) {
 
 		for my $k (@objects) {
 			print "k=$k\n";
@@ -1056,7 +1061,7 @@ sub updmove
 			$sprmoved++;
 		}	
 	}	
-	if ($player->{x} < $w) { $player->{x} = $w }
+	if ($player->{x} < 0) { $player->{x} = 0 }
 	#if ($player->{y} > $worldh) { $player->kill }
 	if ($player->{y} < 0) { $player->kill }
 	elsif ($player->{y} > $worldh) { $player->hide }
@@ -1067,43 +1072,20 @@ sub updmove
 
 sub update_all_objects
 {
+	#reval q(
 	for my $o (@objects) {
 		if ($o->{alive}) { 
 			$o->update();
 		}
 	}
-}
-
-sub update_all_klop
-{
-	for my $k (@klop) {
-		print "klop loop1\n";
-		if ($k->{alive}) { 
-			print "klop loop in:" . $k . " main upd:" .
-				 \&update . "klop upd:" .  "\n";
-
-			$k->update();
-		
-			print "klop loop ret\n";
-		}
-		print "klop loop\n";
-	}
-}
-
-sub update_all_broken_brick
-{
-	for my $b (@broken_brick) {
-		if ($b->{alive}) { 
-			$b->update();
-		}
-	}
+	#);
 }
 
 sub update
 {
 	print "upd\n";
 
-	if (!$in_updmove) {
+	if (!$in_updmove) {		# and $object_created) {
 		$in_updmove=1;
 		update_all_objects();
 		updmove;
@@ -1113,12 +1095,16 @@ sub update
 		$sprmoved=0;
 		#$player->hi;
 		if ($object_created){
+			#reval q(
 			$player->{visible} && $player->draw();
+			#);
 		}
 		$repaint=1;
 	}
 	if ($repaint) {
 		print "curses:ref\n";
+		# Prevent jerkiness.
+		flush STDOUT;
 		$repaint=0;
 	}
 	print_pl_coord;
@@ -1206,21 +1192,20 @@ sub load_square
 	my ($x, $y, $type) = @_;
 
 	$y = 12 - $y;	# 13 would spawn obj's 1 $y above.
-
+	print "debug: loading sqr $x $y\n";
 	for (@{$types4{$type}}) {
 		if ($_ eq "obst") { push @obst, $type }
 		elsif ($_ eq "brick") { push @brick, $type }
 		elsif ($_ eq "box") { push @box, $type }
 		elsif ($_ eq "klop") {
 			create_object_once($x, $y, "Klop");
-			#my $k = new Klop($x, $y);
 			#print "loading klop at $x,$y\n";
-			#push @klop, $k;
 		} 
 		elsif ($_ eq "player") {
-			print "debug: player creted\n";
+			print "debug: player created\n";
 			$player = create_object_once($x, $y, "Player");
-			#$player=new Player($x, $y);
+			# start updating only when player has spawned
+			update;
 			$object_created=1;
 		}
 		if ($_ eq "hide") { next }
@@ -1271,6 +1256,9 @@ sub draw_world
 	my ($scr_x, $scr_y, $don_t_draw) = @_;
 	$scr_x //= $nscr;
 	$scr_y //= $nscry;
+
+	print "loading screen x=$nscr; y=$nscry\n";
+
 	my ($start_x, $start_y, $end_x, $end_y)
 		= get_what_on_screen($scr_x, $scr_y);
 
@@ -1294,8 +1282,9 @@ sub init_srv
 	my $sprw = $spr_w * $tile_width;
 	my $sprh = $spr_h * $tile_height;
 
+	print "curses:init:1\n";
 	print "curses:clear\n";
-	print "curses:lnmode:1\n";
+#	print "curses:lnmode:1\n";
 #	print "curses:progspr:load:$origsprs\n";
 	print "curses:spr:walk1:$sprw:$sprh\n";
 	print "curses:spr:walk2:$sprw:$sprh\n";
@@ -1323,6 +1312,29 @@ sub find_spawn_point
 	print "x=$x,y=$y, " . $world[$x][$y] . "\n";
 	die("No spawn point on map\n");
 }
+
+sub init_jail
+{
+	$compartment->share("\$player");
+	$compartment->share("\@objects");
+	$compartment->share("get_objects_num");
+	$compartment->share("low_draw");
+	$compartment->share("destroy_object");
+	$compartment->share("\$tile_width");
+	$compartment->share("\$tile_height");
+	$compartment->share("\$repaint");
+	$compartment->share("\$pixel_height");
+	$compartment->share("\$spr_w");
+	$compartment->share("\$nscr");
+	$compartment->share("\$nscry");
+	$compartment->share("onscr");
+	$compartment->share("is_on_scr_y");
+	$compartment->share("\%object"); # check types !!
+	$compartment->share("\$walk");
+	$compartment->share("\$worldh");
+	$compartment->share("can_move");
+}
+
 sub spawn_player
 {
 	print "search\n";
@@ -1330,9 +1342,10 @@ sub spawn_player
 	print "/search $x; $y\n";
 	$nscr=nscr($x);
 	$nscry=nscry($y);
+	print "1/scr $nscr; $nscry\n";
 }
 
-sub sizeinit
+sub size_init
 {
 	$inited=1;
 	mkworld;
@@ -1349,11 +1362,14 @@ sub sizeinit
 	load_all;
 
 	#change_screen;
+	print "2/scr $nscr; $nscry\n";
+	print "scr_dims $scrw; $scrh\n";
 	draw_world;
 	print_pl_coord;
-
+	#update;
 	#FIXME: complex backticks don't work in chroot
 
+	init_jail;
 
 	print "curses:hide:logo\n";
 }
@@ -1480,21 +1496,28 @@ sub proc_cmd
 	} elsif (/^user:resize:([^:]*):([^:]*)/) {
 		$scrw=$1 / $tile_width;
 		$scrh=$2 / $tile_height;
+		#$scrh=2 * $2 / $tile_height;
 
 		$scrw=int $scrw;
 		$scrh=int $scrh;
 		
 		undef @loaded_screens;
 
-		if (!$inited) { sizeinit }
-		# FIXME: Should I delete the old one?
-		print "curses:spr:backdrop:" . 2 * $tile_width * $scrw . ":" 				. 2 * $tile_height * $scrh . "\n";
+		print "curses:spr:backdrop:" . 2 * $tile_width * $scrw . ":"
+			. 2 * $tile_height * $scrh . "\n";
+
+		if (!$inited) {
+			size_init;
+		} else {
 		
-		update;
+		# FIXME: Should I delete the old one?
+		
+		# update;	# only when player can't spawn
 		#change_screen or do { draw_world; }; #$sprmoved=1; repaint; };
 		change_screen;
 		draw_world;	# Repaint screen either way, because $nscr may 
 				# not always be different.
+		}
 		print "curses:ref\n";
 	}
 }

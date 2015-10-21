@@ -178,3 +178,32 @@ read_ctrl()
 	esac
 }
 export -f read_ctrl
+
+# Wait until all output text is processed by the terminal.
+# This is a workround for a bug that allows all modules to normally terminate, 
+#	yet part of the output is never delivered to the user.
+# This bug only happens to batch programs e.g:
+#	"sed 's/^/out:printl:/' file; exit", not the interactive ones.
+# Use this function before exiting such programs, e.g:
+#	"sed 's/^/out:printl:/' file; wait_flush; exit"
+# The bug seems to be not in the logic, but in the weird use of all_output pipe.
+
+wait_flush() {
+	local c
+
+	# Querry cursor pos; it will be echoed on the stdin.
+
+	echo out:get_pos
+
+	# Dismiss all input keys until "R" is read. "R" is a terminator of
+	#	the escape sequence reply that holds the screen position.
+
+	while read c
+	do
+		if [ $c = user:key=R ] || [ $c = user:key= ]
+		then
+			break
+		fi
+	done
+}
+export -f wait_flush

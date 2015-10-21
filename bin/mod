@@ -2,12 +2,20 @@
 
 while='while (getln) { llog; '   
 
-end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { onexit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; /^main:log:(\d)/ && do {$log=$1}; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
+end=' /^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; /^main:quit/ && do { on_exit; kill "KILL", -getpgrp() }; /^main:set_config/ && last ; /^main:log:(\d)/ && do {$log=$1}; }; flush DEBUG; s/^main:set_config://; $conf=$_; print "evaling:$conf\n"; eval $conf;'
 
 #TODO:don't log main:log commands
 
 declare -A pid pipe in_pipe loaded 
 
+wait_all() {
+	no_wait=( in mod user )
+	exclude_pids=$(echo ${no_wait[@]} |
+		tr -c '[0-9]' ',')
+	wait_pids=$(echo ${pid[@]} |
+		sed "$(eval e \''s/\<'\'{$exclude_pids}\''\>//;'\')")
+	wait $wait_pids
+}
 
 md_set_io()
 {
@@ -19,6 +27,7 @@ md_give_stdin()
 {
 	echo "$1:stdin=$stdin"
 }
+
 md_give_stdout()
 {
 	scr_writers+="$1 "
@@ -28,6 +37,7 @@ md_give_stdout()
 		echo "$1:set_new_output:$outpipe"
 	fi
 }
+
 mkconfig()
 {
 	for file in "${close[@]}"
@@ -78,6 +88,7 @@ md_load()
 		echo "$1:init"
 	open=()
 }
+
 mod_use_step()
 {
 		[ -z "$tmp_use_mods" ] && 
@@ -91,6 +102,7 @@ mod_use_step()
 		[[ "$tmp_use_mods" =~ "&&" ]] || tmp_use_mods=""
 		tmp_use_mods="${tmp_use_mods#*&&}"
 }
+
 set_piped_output()
 {
 	outpipe="$pdir/all_output"
@@ -101,6 +113,7 @@ set_piped_output()
 		echo "$i:set_new_output:$outpipe"
 	done
 }
+
 proc_cmd()
 {
 	case "$1" in
@@ -117,6 +130,7 @@ proc_cmd()
 		set_piped_output		"${1#mod:set_piped_output:}";;
 	esac
 }
+
 mod_init()
 {
 	mod[${#mod[@]}]=user; pipe[user]="$pdir/user"; pid[user]=$$
@@ -127,3 +141,8 @@ mod_init()
 mod_init
 
 while read cmd; do proc_cmd "$cmd"; done
+
+#wait_all # ${pid[out]}
+wait ${pid[out]}	# Wait for all batched output to flush.
+
+#echo debug:mod ${pid[out]} terminated. >&10

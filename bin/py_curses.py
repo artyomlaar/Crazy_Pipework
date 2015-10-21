@@ -42,13 +42,14 @@ ptrn32=re.compile(r'^pr:([^:]*)')
 ptrn33=re.compile(r'^rmparts')
 ptrn34=re.compile(r'^paste:([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*):([^:]*)')
 ptrn35=re.compile(r'^shft:([^:]*):([^:]*)')
-ptrn36=re.compile(r'^cstart')
+ptrn36=re.compile(r'^cstart')	#  Use init instead "start" is used by client.
 ptrn37=re.compile(r'^cstop')
 ptrn38=re.compile(r'^brrr')
 ptrn39=re.compile(r'^defspr:([^:]*):([^:]*):([^:]*):([^:]*)')
 ptrn40=re.compile(r'^defspr:([^:]*):([^:]*):([^:]*)') # name, 000line, data (TODO)
 ptrn41=re.compile(r'^meta:') # skip file metadata TODO: up
 ptrn42=re.compile(r'^palette:([^:]*):([^:]*)') # spr, palette
+ptrn43=re.compile(r'^init:([^:]*)') # lnmode
 
 locale.setlocale(locale.LC_ALL,'') # had errors
 code=locale.getpreferredencoding()
@@ -60,8 +61,6 @@ def start1():
 	curses.use_default_colors()
 	curses.curs_set(0)
 	print "inited"
-start1()
-cs.clear()
 ncolor=0
 ca=[]
 w=0
@@ -75,7 +74,7 @@ progbar={}
 progbarmax={}
 lowerhalf="\xe2\x96\x84"
 palette={}
-no_part_sprites=True
+no_part_sprites=0#True
 
 for i in range(8): # TODO: add alpha support (color_id=-1)
 	ca.append([])
@@ -92,8 +91,6 @@ def fn(fg, bg): # TODO: add 2d array, look the id up there, if 404, inc id
 	else:
 		c=ca[fg][bg]
 	return c
-
-odd_color=fn(0, 7)
 
 def scrout(w, x, y, fg, bg, s):
 	if fg==bg==7:
@@ -181,7 +178,12 @@ def on_start():
 	#	output("mod:ready:in\n")
  	send_win_size()
 
-on_start()
+def general_init():
+	global odd_color
+	start1()
+	cs.clear()
+	odd_color=fn(0, 7)
+	on_start()
 
 #def mainloop():
 while True:
@@ -428,7 +430,8 @@ while True:
 		spr=spr.window()
 		spr.mvderwin(int(shft),0)
 	elif ptrn36.match(a):
-		start1()
+		#start1()
+		general_init()
 	elif ptrn37.match(a):
 		curses.endwin()
 		print "uninited"
@@ -457,7 +460,7 @@ while True:
 		if not win:
 			continue
 		line=int(line)
-		if line%2 == 0:	# Even
+		if line%2 == 0:  # even
 			for x in range(len(data)):
 				bg = palette[name][int(prevline[x])]
 				fg = palette[name][int(data[x])]
@@ -473,6 +476,9 @@ while True:
 #		time.sleep(20)
 #		last
 
+	elif ptrn43.match(a):
+		lnmode=int(ptrn43.match(a).groups()[0]) # 0-def, 1-2xln, 2-float
+		general_init()
+		send_win_size()
 on_exit()
-
 
