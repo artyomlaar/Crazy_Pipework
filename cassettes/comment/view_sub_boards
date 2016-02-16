@@ -3,33 +3,58 @@
 cd `dirname $0`
 
 # From env.
+board=$board
 board=${1-/}
-export board
-dir_board=$board
-board=$board/_/
 
 clear=$'\x1b[0m\x1b[H\x1b[2J'
-postcount=board/$board/post_count
-boardname="$(cat board/$board/board_name)"
+postcount=board/$board/postcount
 echo "out:print:$clear"
 
-mk_thread()
-{
-	THREADF=tmp/${XSID}-post
-	THREAD_F=$THREADF consolemode ./post
-	get=$(cat $postcount)
-	echo $((++get)) >$postcount
-	TARGET=board/$board/$get
-	cat $THREADF >board/$board/$get
+color_green=$'\e[32m'
+color_red=$'\e[31m'
+color_blue=$'\e[34m'
+color_default=$'\e[39m'
+max_board_depth=2
+
+make_board() {
+	local nbd=board_$thrlen
+	mkdir board/$board/$nbd
+	mkdir board/$board/$nbd/_
+	echo $nbd >board/$board/$nbd/_/board_name
+}
+
+get_current_board() {
+	local cmd="out:printc:\e\[3.m"
+	cur_board=$(
+		head -n1 <<<"$1" |
+		perl -p -e "s|^$cmd\s*(/\S+/).*|\1| or exit 1"
+	)
+}
+
+current_board_depth() {
+	echo "$board" |
+	perl -e '$_=<>; $i=0;
+		chomp;
+		while (s|[^/]+||) {
+			$i++
+		}
+		END {
+			print "$i\n"
+		}
+	'
 }
 
 view_board()
 {
-	echo -e "out:printl:\e[2K    $dir_board - $boardname"
-
-	for i in `ls -t board/$board/[0-9]*`
+	local board_path name threads
+	echo -e "out:printc:\tSub-boards of $board: depth=$(current_board_depth)"
+	ls -dt board/$board/*/_/ |
+	while read b
 	do
-		short=1 threadtail=5 ./show_thread $i
+		board_path=$(sed -E "s|.*(/[^/]+/)/*_/*|\1|" <<<"$b")
+		name=$(cat $b/board_name)
+		threads=$(cat $b/post_count)
+		echo -e "out:printc:$color_red$board_path$color_default - $name\t$color_green(${threads:-0} Threads)$color_default"
 	done
 }
 
@@ -69,20 +94,28 @@ print_thread()
 		scr=$'out:printl:'
 	fi
 	echo "$scr"
-	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down; n - new thread"
-	td="[0-9]\{2\}"
-	if [ "$((curend-1))" = "$rows" ]
-	then
-		echo "out:print:; r - sub-boards"
-	fi
-	head -n1 <<<"$prs_scr" | 
-		grep -q "^out:printc:$td$td-$td-$td $td:$td.*thread_" &&
-		{
-			c_thread=$( head -n1 <<<"$prs_scr" | 
-				sed "s/^out:printc:$td$td-$td-$td $td:$td.*thread_\([0-9]\+\).*/\1/" )
+	echo -e "out:print:\e[$((rows));1H"
+	echo -e "out:print:\e[2K\e[Gw - up; s - down"
 
-			echo "out:print:; r - reply"
-		}
+	if [ "$sub_boards_allowed" ]
+	then
+		echo "out:print:; n - new board"
+	fi
+
+	td="[0-9]\{2\}"
+
+	# if [ "$((curend-1))" = "$rows" ]
+	# then
+	#	echo "out:print:; r - sub-boards"
+	# fi
+
+	if get_current_board "$prs_scr"
+	then
+			echo "out:print:; r - enter"
+	fi
+	
+	# echo "out:print:cb=$cur_board"
+
 	oldpos=$1
 }
 
@@ -93,6 +126,10 @@ size=$(stty size <&$stdin)
 rows=${size% *}
 prows=$((rows-1))
 curend=$((rows+1))
+if ((`current_board_depth` + 1 <= max_board_depth))
+then
+	sub_boards_allowed=1
+fi
 print_thread $curend
 
 proc_cmd()
@@ -109,7 +146,7 @@ proc_cmd()
 				((--curend))
 		elif [[ $k == s ]]
 		then
-			((curend<rows+thrlen)) &&
+			((curend<=rows+thrlen)) &&
 				((++curend))
 		elif [[ $k == W ]]
 		then
@@ -122,7 +159,8 @@ proc_cmd()
 		then
 			if [ "$((curend-1))" = "$rows" ]
 			then
-				./view_sub_boards $dir_board
+				echo "out:printc:subboards"
+				read
 			elif [ "$c_thread" ]
 			then
 				# THREAD=$c_thread ./view_thread
@@ -133,12 +171,15 @@ proc_cmd()
 				./view_thread_one $board $c_thread 
 				
 				refresh_board
+			elif [ "$cur_board" ]
+			then
+				./view_board ${board%/}$cur_board
+				# curend=$((rows+1))
+				refresh_board
 			fi
 		elif [[ $k == n ]]
 		then
-			#mk_thread
-			board=$board \
-			./post_menu
+			make_board
 			refresh_board
 		fi	
 	fi

@@ -4,6 +4,17 @@
 
 src=chroot/crazy_pipework
 
+
+get_lib_path() {
+	local name="$1"
+	local arch="$2"
+
+	ldconfig -p |
+	sed -n "/$name .*(.*$arch.*)/s/.*=> //p"
+}
+
+
+
 echo searching for dependencies...
 bin=(
 	`
@@ -30,13 +41,14 @@ bin=(
 
 echo making chroot env...
 echo "${bin[@]}"
-./add_chroot_cmd.sh "${bin[@]}"
+mkdir chroot
+./add_chroot_cmd2 chroot "${bin[@]}"
 
-case `arch` in
-(x86_64)	ln -s lib64 chroot/lib ;;
-(x86)		ln -s lib32 chroot/lib ;;
-(armv7l)	ln -s lib32 chroot/lib ;;
-esac
+#case `arch` in
+#(x86_64)	ln -s lib64 chroot/lib ;;
+#(x86)		ln -s lib32 chroot/lib ;;
+#(armv7l)	ln -s lib32 chroot/lib ;;
+#esac
 
 echo copying misc files...
 mkdir -p chroot/etc/perl

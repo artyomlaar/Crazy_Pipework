@@ -13,7 +13,14 @@ port=${port:-8090}
 host=${host:-localhost}
 SELECTION=${2:-/}
 
-[ $NULL_CLIENT ] && HOME=/home/`whoami`
+if [ $IN_CHROOT ]
+then
+	[ $NULL_CLIENT ] && HOME=/home/`whoami`
+else
+	[ $NULL_CLIENT ] && HOME=../home/
+fi
+
+
 clidir="$HOME/.my-client"
 
 logdir=$clidir/log

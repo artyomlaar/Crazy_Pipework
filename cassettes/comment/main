@@ -1,6 +1,11 @@
 #!/bin/bash
 cd `dirname $0`
 
+
+./view_board
+exit
+
+
 min=1
 a=1
 bgcolor=${menu_bg-4}

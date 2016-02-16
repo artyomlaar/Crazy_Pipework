@@ -58,7 +58,7 @@ mkconfig()
 
 	for address in "${mod[@]}"
 	do
-	       echo -n "/^$address:/ && do { print $address; flush $address; next }; "
+	       echo -n "/^$address:/ && do { print $address or die(\"debug:main loop pipe write failed $address.\"); flush $address; next }; "
 	done
 
 	echo -n "$end"
@@ -82,11 +82,20 @@ md_load()
 
 	$BINDIR/$1 <$pdir/$1 >${in_pipe[$1]} 2>$logdir/$1 &
 	pid[$1]=$!
-	open="$1"
-		mod[${#mod[@]}]=$1 
-		echo "main:set_config:`mkconfig`"
-		echo "$1:init"
-	open=()
+
+	new_mod=
+	if [ $new_mod ]
+	then
+		open="$1"
+			mod[${#mod[@]}]=$1 
+			echo "main:set_config:`mkconfig`"
+			echo "$1:init"
+		open=()
+	else
+			mod[${#mod[@]}]=$1 
+			echo "main:add:$1"
+			echo "$1:init"
+	fi
 }
 
 mod_use_step()

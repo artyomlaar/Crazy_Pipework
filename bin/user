@@ -108,6 +108,10 @@ proc_cmd()
 echo -e "mod:use:in&&out"
 
 while read cmd; do proc_cmd $cmd; done
+
+# Reset all the possible changes in the terminal.
+reset
+
 exit
 
 

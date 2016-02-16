@@ -1,0 +1,248 @@
+#!/usr/bin/perl
+
+use v5.10;
+use IO::Handle;
+use Time::HiRes;
+
+$|++;
+$log=1;
+$logdir=$ENV{logdir};
+
+open DEBUG, ">$logdir/main";
+print DEBUG "0.000 debug: started at $^T\n";
+print "0.000 debug: started at $^T\n";
+
+sub llog
+{
+        if (!$log) { return }
+        printf DEBUG "%0.3f ", Time::HiRes::time-$^T;
+        print DEBUG;
+        flush DEBUG;    # Or delete it.
+}; 
+
+sub on_exit
+{
+        print DEBUG "debug:main: perl main bus terminating...\n";
+        flush DEBUG;
+        close DEBUG;
+};
+
+#$SIG{INT} = &on_exit;
+#$SIG{TERM} = &on_exit;
+
+END { on_exit };
+
+
+use IO::Poll qw(POLLIN POLLOUT POLLHUP);
+use Fcntl;
+use POSIX qw(:errno_h);
+
+my $poll = IO::Poll->new;
+$nrd=0;
+
+open ERR, ">error";
+
+sub perr
+{
+        print ERR "\t" x $_[1], $_[0] . "\n";
+        flush ERR;
+}
+
+sub updpoll
+{
+        $nrd = @read;  # flags to poll for new list of handles on next read
+}
+
+sub addfd
+{
+        my $fd=$_[0];
+
+        my $flags = "";
+fcntl($fd, F_GETFL, $flags)
+    or die "Couldnt get flags for HANDLE : $!\n";
+$flags |= O_NONBLOCK;
+fcntl($fd, F_SETFL, $flags)
+    or die "Couldnt set flags for HANDLE: $!\n";
+
+        $poll->mask($fd => POLLIN);
+        push @fds, $fd;
+        updpoll;
+        #perr("ADD nfds=" . scalar(@fds));
+}
+
+sub rmfd
+{
+        my $fd=$_[0];
+        my $i=-1;
+
+        $poll->mask($fd => 0);
+        while ($fds[++$i] != $fd) { };
+        splice @fds, $i, 1;
+        updpoll;
+        #perr("RM nfds=" . scalar(@fds));
+}
+
+sub tryreadln
+{
+        my $fd = $_[0];
+        my $n;
+
+        while ($n=sysread $fd, my $c, 1000) {
+                $buf{$fd} .= $c;
+                #perr("read: $n : $c", 3);
+        }
+
+        if (!defined($n) && $!==EAGAIN) {
+
+        }
+
+        elsif (!$n) {
+                rmfd $fd;
+                #perr("rm: $fd", 3);
+        }
+}
+
+sub readfds
+{
+        #perr("readfds: nrd=$nrd, nread=" . scalar( @read), 2);
+        if ($nrd == @read) {  # get new list of ready files if needed
+                #perr("poll...", 2);
+                $poll->poll;
+                @read = $poll->handles(POLLIN);
+                $nrd=0;
+                #perr("polled: nrd=$nrd, nread=" . scalar( @read), 2);
+        }
+
+        my $fd = $read[$nrd];  # choose current file
+        #perr("fd=$fd, nrd=$nrd", 2);
+
+        tryreadln($fd); # read what you can from it
+        
+        #perr("buf{fd}=" . $buf{$fd} . ", nrd=$nrd", 2);
+
+        # TODO: read one line at a time to spread them more evenly
+        while ($buf{$fd} =~ s/(.*\n)//) {  # if it s a whole line,
+                push @lines, $1;        #  add it to the stream.
+                #perr("pushed: $1", 2);
+        } #else { #perr("notthing to push") }
+
+        #perr("buf{fd}=" . $buf{$fd} . ", nrd=$nrd", 2);
+
+        $nrd++;   # next file
+        #perr("nfds=" .scalar(@fds), 2);
+        return scalar @fds;
+}
+
+sub getln
+{
+#       print "debug:$nrd=nrd, fds=" . scalar @fds . " read=" . scalar @read . "\n";
+        $_="";
+
+        #perr("getln" );
+        while (1) {
+                #perr("getln-iter: _=$_, nlines=" . scalar(@lines), 1 );
+                if (@lines) {
+                        $_ = shift @lines;  # continuous stream of lines. multiplexes all files
+                        #perr("got line: $_", 1);
+                        return True;
+                } else {
+                        #perr("reading fds...", 1);
+                        readfds
+                                or return False;  # this can happen only when @lines is empty, so it s safe to terminate
+                }
+        }
+}
+
+#open IN1, "<&0";
+#open IN2, "<&3";
+#addfd \*IN1;
+#addfd \*IN2;
+addfd \*STDIN;
+#while (getln) {
+        #print;
+#}
+
+
+# Default config. Meant to work with the subs.
+
+$def_config = q{
+
+	while (getln) { 
+		print DEBUG "debug:input comand: $_\n"; flush DEBUG;
+		llog; 
+		if (/^([a-z0-9]+):/) {
+			if ($1 ~~  @modules) {
+				print $1 $_ or die("debug:main loop pipe write failed $address.");
+				flush $1;
+				next
+			};
+		};
+		/^main:add:(.*)/ && do { add_module($1); };
+		/^main:free:(.*)/ && do { free_module($1); };
+		/^main:get_config:/ && do {
+			print ((/^main:get_config:(.*)/), ":conf=$conf\n"); };
+		/^main:set_config/ && do { last; };
+		/^main:quit/ && do { print "debug:quit\n";on_exit; kill "KILL", -getpgrp() };
+		/^main:log:(\d)/ && do {print "debug:log\n";$log=$1};
+	}; print DEBUG "debug: End core main loop.\n";
+	flush DEBUG;
+	s/^main:set_config://;
+	$conf=$_;
+	print DEBUG "evaling:$conf\n";
+	eval $conf;	
+};
+$def_config =~ s/[\t\n]+/ /g;
+
+$pipe_d = $ENV{pdir};
+
+sub add_module
+{
+	$file = shift;
+
+	return if ($file =~ /^main:/);
+
+	my $add= qq{open $file, ">$pipe_d/$file";
+		open in_$file, "<$pipe_d/to_loop_$file";
+		addfd \*in_$file;
+	};	
+	eval("$add");
+	push @modules, $file;
+}
+
+sub free_module
+{
+	my $file = shift;
+
+	eval("	rmfd \*in_$file;
+		close in_$file;
+		close $file;	");
+
+	# Remove freed module.
+	for (@modules) {
+		@a = @a[0..$i-1, $i+1..$#a] if $_ eq 2;
+		$i++
+	}
+}
+
+
+
+#        echo -n "$end"
+
+$use_new=1;
+
+if ($use_new) {
+	# print $def_config;
+	eval($def_config);
+	print $@;
+} else {
+
+	$cfg_cmd=qr/^main:set_config:/o;	# This was shell.
+
+	while (<STDIN>) {
+		/$cfg_cmd/ && last
+	};
+
+	$readconfig2="s/$cfg_ptrn//; \$config=\$_; print \"evaling:\$config\\n\"; eval \$config;";
+
+	eval($readconfig2);
+}

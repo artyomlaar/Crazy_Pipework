@@ -1,0 +1,152 @@
+#!/bin/bash
+
+board=$1	# board
+thread_num=$2	# Number of thread on the board
+post_num=$3	# Number of post in the thread
+((post_num++))	# Adjust indexing.
+
+thread_file="board/$board/$thread_num"
+
+n=thread_$thread_num	# Iterates over the posts
+lines=`wc -l <$thread_file`	
+size=$(stty size <&$stdin)
+cols=${size#* }
+pic_pst_mgn=1		# Margin between a picture and a post
+
+if ((post_num > lines)) || ((post_num < 1))
+then
+	exit 1
+fi
+
+# echo "out:printl:$board $thread_num $post_num l=$lines"
+
+cl_red="\x1b[31m"
+cl_green="\x1b[32m"
+cl_default="\x1b[39m"
+
+
+sed_subst()
+{
+	sed -e '/^curses:/d' \
+   	-e 's/^\(out:printl:.*\)>>\(.*\)/\1'"$cl_red"'>>\2'"$cl_default"'/' \
+	-e 's/^\(out:printl:.*[^>]\)>\([^>].*\)/\1'"$cl_green"'>\2'"$cl_default"'/' \
+	-e 's/^out:printl:/out:printc:/' 
+	#-e 's/^\(out:printl:\)/\1\x1b[2K\x1b[G/' 
+}
+
+surround_pic_with_text()
+{
+	perl -e '$pic_d=q('"$pic_data"');
+	         $cmnt='\'"${c2//\'/}"\'';
+	         #$cmnt='\'"${c2//\'/\'}"\''; # FIXME: doesnt work with )
+	         $h=q('"$post_height"');
+	         $w=q('"$post_width"');
+	         $pic_d=~s/^out:printc://gm;
+	         @pic_ln=split /\n/, $pic_d;
+	         $cmnt=~s/\\n/\n/gm;
+	         $cmnt=~s/\\\x27/\x27/gm;
+	         $s="out:printl:\x1b[16C ";	# FIXME: magic number 16
+	         @c_ln=split /\n/, $cmnt;
+
+		 # split logical lines of comment into screen lines
+	         for (@c_ln) {
+			while (s/^(.{$w})//) {
+				push @scr_ln, $1;
+			}
+			push @scr_ln, $_;
+	         }
+
+		 # h = max:
+	         $h=scalar(@scr_ln) > $h ? scalar(@scr_ln) : $h;
+
+		 # Print pic & comment lines
+	         for ($i=0; $i<$h; $i++) {
+			print $pic_ln[$i], " ", $scr_ln[$i], "\n";
+	         }' |
+	sed 's/^/out:printl:/'
+}
+
+picture_proc()
+{
+	case $p in
+	(*.crs)
+		pf="./pic/$p"				# path to pic file
+		;;
+	(*.skin)
+		pf="./icons/skin_16.crs"
+		;;
+	(*.map)
+		pf="./icons/map.crs"
+		;;
+	(*)
+		pf="./icons/unknown.crs"
+		;;
+	esac
+
+	pw="`sed -n 1p <"$pf" | wc -c`"	# The picture's width
+	ph="`wc -l <"$pf"`"		# The picture's height
+}
+
+parse_post()
+{
+	d="`cut -d@ -f1 <<<"$c"`"	# d : date as epoch
+	c2="`cut -d@ -f3 <<<"$c"`"	# c2 : comment text
+	p="`cut -d@ -f4 <<<"$c"`"	# p : path to the attached picture
+	picture_proc
+}
+
+# Prints the date and the post number in the thread.
+
+print_date()
+{
+	perl -e '
+		use POSIX qw(strftime);
+		print "out:printl:"
+		      . strftime("%Y-%m-%d %H:%M", localtime('$d'/1000))
+		      . "'"$cl_green"\ \#$((post_num-1))$cl_default'\n";'
+}
+
+print_pic()
+{
+	if [ "$p" ]
+	then
+		printpic2 "$pf" | sed 's/^/out:printc:/'
+	fi
+}
+
+do_math()
+{
+	pic_height=$(wc -l <<<"$pic_data")
+	comnt_len=$(wc -c <<<"$c2")
+        ((pw-=4)) #extra escape chars counted as picture
+	((
+		pic_width=pw?pw+pic_pst_mgn:0,
+		post_width=cols-pic_width-4,
+		comnt_height=comnt_len/post_width+1
+	))
+	((
+		post_height=`max $pic_height $comnt_height` 
+	))
+	((n++))
+}
+
+process_post()
+{
+	parse_post
+
+	print_date
+
+	pic_data="$(print_pic)"
+	do_math
+	surround_pic_with_text
+
+	echo out:printl:      # after post
+}
+
+sed -n ${post_num}p $thread_file |
+while read -r c
+do
+	process_post
+done |
+sed_subst
+

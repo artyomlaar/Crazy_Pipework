@@ -32,6 +32,7 @@ echo 'Enter the username to run the server as (default="pipework"):'
 read user
 user=${user-pipework}
 dir=/home/$user
+touch $dir/.hushlogin		# In case of SSH logins.
 chrdir=/home/$user/chroot
 cd "`dirname "$0"`"
 
@@ -104,6 +105,9 @@ chown -R $user crazy_pipework/log/
 chown -R $user crazy_pipework/pipe/
 chown $user crazy_pipework/
 chown $user crazy_pipework/curseserror 
+# TODO (not tested):
+chown -R $user crazy_pipework/cassettes/comment
+
 cd - >/dev/null
 
 echo if you run telnet through xinetd

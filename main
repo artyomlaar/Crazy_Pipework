@@ -1,9 +1,9 @@
 #!/bin/bash
 
+XSID=${XSID-$$}
 HOME=${HOME-/home/`whoami`} # home is unset when run from xinetd
-PIPEDIR="${pdir-"`dirname $0`/pipe/$$"}" # it can be set from server.bash
+PIPEDIR="${pdir-"`dirname $0`/pipe/$XSID"}" # it can be set from server.bash
 export ISPEED=120
-export PATH=/bin:/crazy_pipework/misc
 #export COREPID=$$
 
 #export -n pdir
@@ -11,10 +11,20 @@ export pdir="$PIPEDIR"
 export BINDIR=./bin
 export logdir=log/$XSID
 export menu_fg=7 menu_bg=4
+export XSID
 declare -A pidbyid cmdbypid
 mkdir $logdir
 
+export new_core=1
+
 cd `dirname $0`
+
+if [ $IN_CHROOT ]
+then
+	export PATH=$PATH:/crazy_pipework/misc
+else
+	export PATH=$PATH:`pwd`/misc
+fi
 
 [ -d "$PIPEDIR" ] || mkdir "$PIPEDIR"
 
@@ -23,168 +33,11 @@ cd `dirname $0`
 to_loop=$PIPEDIR/to_loop
 from_loop=$PIPEDIR/from_loop
 
-cfg_ptrn="^main:set_config:"
+cfg_ptrn="^main:set_config:"	# Now set in .pl. Export?
 
-init='
-use v5.10;
-use IO::Handle;
-use Time::HiRes;
-$|++;
-$log=1;
-open DEBUG, ">'$logdir/main'";
-print DEBUG "0.000 debug: started at $^T\n";
-
-sub llog
-{
-	if (!$log) { return }
-	printf DEBUG "%0.3f ", Time::HiRes::time-$^T;
-	print DEBUG;
-	flush DEBUG;	# Or delete it.
-}; 
-sub on_exit
-{
-	print DEBUG "debug:main: perl main bus terminating...\n";
-	flush DEBUG;
-	close DEBUG;
-};
-#$SIG{INT} = &on_exit;
-#$SIG{TERM} = &on_exit;
-'
-
-readconfig1='while (<STDIN>) { /'"$cfg_ptrn"'/ && last };'
 
 readconfig2="s/$cfg_ptrn//; \$conf=\$_; print \"evaling:\$conf\\n\"; eval \$conf;"
 
-poll='
-use IO::Poll qw(POLLIN POLLOUT POLLHUP);
-use Fcntl;
-use POSIX qw(:errno_h);
-
-my $poll = IO::Poll->new;
-$nrd=0;
-
-open ERR, ">error";
-
-sub perr
-{
-	print ERR "\t" x $_[1], $_[0] . "\n";
-	flush ERR;
-}
-
-sub updpoll
-{
-	$nrd = @read;  # flags to poll for new list of handles on next read
-}
-
-sub addfd
-{
-	my $fd=$_[0];
-
-	my $flags = "";
-fcntl($fd, F_GETFL, $flags)
-    or die "Couldnt get flags for HANDLE : $!\n";
-$flags |= O_NONBLOCK;
-fcntl($fd, F_SETFL, $flags)
-    or die "Couldnt set flags for HANDLE: $!\n";
-
-	$poll->mask($fd => POLLIN);
-	push @fds, $fd;
-	updpoll;
-	#perr("ADD nfds=" . scalar(@fds));
-}
-
-sub rmfd
-{
-	my $fd=$_[0];
-	my $i=-1;
-
-	$poll->mask($fd => 0);
-	while ($fds[++$i] != $fd) { };
-	splice @fds, $i, 1;
-	updpoll;
-	#perr("RM nfds=" . scalar(@fds));
-}
-
-sub tryreadln
-{
-	my $fd = $_[0];
-	my $n;
-
-	while ($n=sysread $fd, my $c, 1000) {
-		$buf{$fd} .= $c;
-		#perr("read: $n : $c", 3);
-	}
-
-	if (!defined($n) && $!==EAGAIN) {
-
-	}
-
-	elsif (!$n) {
-		rmfd $fd;
-		#perr("rm: $fd", 3);
-	}
-}
-
-sub readfds
-{
-	#perr("readfds: nrd=$nrd, nread=" . scalar( @read), 2);
-	if ($nrd == @read) {  # get new list of ready files if needed
-		#perr("poll...", 2);
-		$poll->poll;
-		@read = $poll->handles(POLLIN);
-		$nrd=0;
-		#perr("polled: nrd=$nrd, nread=" . scalar( @read), 2);
-	}
-
-	my $fd = $read[$nrd];  # choose current file
-	#perr("fd=$fd, nrd=$nrd", 2);
-
-	tryreadln($fd); # read what you can from it
-	
-	#perr("buf{fd}=" . $buf{$fd} . ", nrd=$nrd", 2);
-
-	# TODO: read one line at a time to spread them more evenly
-	while ($buf{$fd} =~ s/(.*\n)//) {  # if it s a whole line,
-		push @lines, $1;        #  add it to the stream.
-		#perr("pushed: $1", 2);
-	} #else { #perr("notthing to push") }
-
-	#perr("buf{fd}=" . $buf{$fd} . ", nrd=$nrd", 2);
-
-	$nrd++;   # next file
-	#perr("nfds=" .scalar(@fds), 2);
-	return scalar @fds;
-}
-
-sub getln
-{
-#	print "debug:$nrd=nrd, fds=" . scalar @fds . " read=" . scalar @read . "\n";
-	$_="";
-
-	#perr("getln" );
-	while (1) {
-		#perr("getln-iter: _=$_, nlines=" . scalar(@lines), 1 );
-		if (@lines) {
-			$_ = shift @lines;  # continuous stream of lines. multiplexes all files
-			#perr("got line: $_", 1);
-			return True;
-		} else {
-			#perr("reading fds...", 1);
-			readfds
-				or return False;  # this can happen only when @lines is empty, so it s safe to terminate
-		}
-	}
-}
-
-#open IN1, "<&0";
-#open IN2, "<&3";
-#addfd \*IN1;
-#addfd \*IN2;
-addfd \*STDIN;
-#while (getln) {
-	#print;
-#}
-'
 
 exec {stdout}>&1
 exec {stdin}<&0
@@ -205,10 +58,38 @@ linebufferedcat()
 	# grep --line-buffered ''
 }
 
-icmds()
+add_module() {
+	local cmd_id="$1"
+	local cmd="$2"
+
+	mkpipe $cmd_id
+
+	$cmd <$PIPEDIR/$cmd_id >$PIPEDIR/to_loop_$cmd_id 2>$logdir/$cmd_id &
+
+	pidbyid[$cmd_id]=$!
+	cmdbyid[$cmd_id]=$cmd
+
+	# Is that needed anymore?
+	for ((i=0; 1; i++))
+	do
+		[ -z "${pattern[i]}" ] && pattern[i]=$1 && break 
+	done
+
+	echo "main:add:$cmd_id"
+}
+
+init_cmds()
 {
-	echo "main:set_config:`mkptrn_pl`"
-	echo "mod:set_io:$stdin:$stdout"
+	if [ $new_core ]
+	then
+		add_module "mod" "$BINDIR/mod"
+		add_module "user" "$BINDIR/user"
+	else
+	#	echo "main:add:mod"
+	#	echo "main:add:user"
+		echo "main:set_config:`mkptrn_pl`"
+		echo "mod:set_io:$stdin:$stdout"
+	fi
 }
 
 mkpipe()
@@ -219,12 +100,17 @@ mkpipe()
 
 mktask()
 {
-	mkpipe $1
-	eval "$2 <$PIPEDIR/$1 >$PIPEDIR/to_loop_$1 2>$logdir/$1 &"
-	pidbyid[$1]=$!
-	cmdbyid[$1]=$2
+	local cmd_id="$1"
+	local cmd="$2"
 
-	for ((i=0;1;i++))
+	mkpipe $cmd_id
+
+	$cmd <$PIPEDIR/$cmd_id >$PIPEDIR/to_loop_$cmd_id 2>$logdir/$cmd_id &
+
+	pidbyid[$cmd_id]=$!
+	cmdbyid[$cmd_id]=$cmd
+
+	for ((i=0; 1; i++))
 	do
 		[ -z "${pattern[i]}" ] && pattern[i]=$1 && break 
 	done
@@ -258,22 +144,41 @@ mkptrn_pl()
 mkpipe "${to_loop##*/}"
 mkpipe "${from_loop##*/}"
 
+echo to_loop
+
+echo logdir=$logdir
+echo `pwd`
+
+#perl -e 'use v5.10;
+#use IO::Handle;
+#use Time::HiRes;
+#print "hi\n";' >/dev/null
+
 
 linebufferedcat <$to_loop >$from_loop &
 
 export stdin stdout
 
 #{
+if [ $new_core ]
+then
+	:
+	#add_module "mod" "$BINDIR/mod"
+	#add_module "user" "$BINDIR/user"
+else
 	mktask "mod" "$BINDIR/mod"
 	mktask "user" "$BINDIR/user"
+fi
 #} >$to_loop
 
 
-{ icmds; cat <$from_loop; } |  # tee log/bad1-$$ | # tee  >(cat >&$stdout) |
-perl -e "$init$poll$readconfig1$readconfig2" >&$to_loop
+{ init_cmds; cat <$from_loop; } |  # tee log/bad1-$$ | # tee  >(cat >&$stdout) |
+./core >&$to_loop
+
+# perl -e "$init$poll$readconfig1$readconfig2" >&$to_loop
 
 #wait ${pidbyid[mod]} 
-
+echo wait
 wait
 
 rm -r "$PIPEDIR"

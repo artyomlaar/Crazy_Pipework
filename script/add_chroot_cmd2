@@ -1,0 +1,26 @@
+#!/bin/bash
+
+chroot=$1
+shift
+
+# Print libs used by command whose path is in $1.
+libs_used_by() {
+	ldd $1 |
+	sed -nE 's/[^/]*(\/[^ ]+).*/\1/p'
+}
+
+add_cmd() {
+	cmd=`which $1`;
+	local chroot="$2";
+	cp -v --parents $cmd "$chroot";
+	for lib in `libs_used_by $cmd`
+	do
+		cp -v --parents "$lib" "$chroot"
+	done
+}
+
+for command in $@
+do
+	echo -e "\n$command:"
+	add_cmd $command $chroot
+done

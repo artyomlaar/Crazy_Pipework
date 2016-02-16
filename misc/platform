@@ -1,4 +1,4 @@
-#!/bin/perl
+#!/usr/bin/perl
 #!/usr/bin/env perl
 use Time::HiRes;
 use Safe;

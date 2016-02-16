@@ -1,15 +1,25 @@
 #!/bin/bash
 
+# $board is in env.
+
+THREAD=$1
+
 THREAD_F=board/$board/$THREAD
 export THREAD_F
+export THREAD
 
 clear=$'\x1b[0m\x1b[H\x1b[2J'
 echo "out:print:$clear"
 
+td="[0-9]\{2\}"
+
 refresh_thread()
 {
 	echo "out:print:$clear"
-	thread=$(./show_thread $THREAD_F)
+	# thread=$(./show_thread $THREAD_F)
+	thread=$(./show_post $board $THREAD 1)
+
+	echo "$thread" >/crazy_pipework/debug_thread.txt
 
 	stty -icanon -echo <&$stdin
 	
@@ -20,11 +30,22 @@ refresh_thread()
 	done <<<"$thread"
 }
 
+at_thread_header() {
+	head -n1 <<<"$1" |
+		grep -q "out:printc:$td$td-$td-$td $td:$td"
+}
+
+
+get_current_post_id() {
+	head -n1 <<<"$1" | 
+		sed "s/^out:printc:$td$td-$td-$td $td:$td.*#\([0-9]\+\).*/\1/"
+}
+
 print_thread()
 {
-	c_thread=""
 	echo -e "out:print:\e[H\e[0m"
 	end=$1
+
 	if ((end == oldpos+1))
 	then
 		((end-=2))
@@ -34,30 +55,29 @@ print_thread()
 		start=$((end-rows))
 		((end-=2))
 	fi
+	oldpos=$1
+
 	scr="$(sed -n $start,${end}p <<<"$thread")"
 	prs_start=$((end-rows+2))
 	prs_scr="$(sed -n $prs_start,${end}p <<<"$thread")"
+
 	if [ -z "$scr" ]
 	then
 		scr=$'out:printl:'
 	fi
+
 	echo "$scr"
 	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down"
-	td="[0-9]\{2\}"
-	if head -n1 <<<"$prs_scr" |
-		grep -q "out:printc:$td$td-$td-$td $td:$td"
+
+	if at_thread_header "$prs_scr"
 	then
-		c_post=$( head -n1 <<<"$prs_scr" | 
-			sed "s/^out:printc:$td$td-$td-$td $td:$td.*#\([0-9]\+\).*/\1/" ||
-				echo 0
-		)
+		c_post=$(get_current_post_id "$prs_scr" || echo 0)
 
                	echo "out:print:; r - reply"
 	else 
 		unset c_post
 	fi
 
-	oldpos=$1
 }
 
 
@@ -97,6 +117,8 @@ proc_cmd()
 			if [ "$c_post" ]
 			then
 				c_post=$c_post \
+				THREAD_F=$THREAD_F \
+				THREAD=$THREAD \
 				./post_menu
 				refresh_thread
 			fi
