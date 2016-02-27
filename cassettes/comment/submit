@@ -6,6 +6,10 @@
 #pic_file=`perl -e 'use Time::HiRes; printf "%.06f.'"$FILE_EXT"'", Time::HiRes::time' |
 #sed 's/\.//'`
 
+TARGET="$1"
+POST="$2"
+FILE="$3"
+
 maxlines=20
 maxchars=1920
 postlines=`wc -l <$POST`

@@ -1,0 +1,12 @@
+#!/bin/bash
+
+exec {stdout}>&1
+exec >&3
+file=./tmp/$$.txt
+
+echo "$1" >$file
+POST=$file readlines
+
+cat $file >&$stdout
+rm $file
+

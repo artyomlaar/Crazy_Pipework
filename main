@@ -15,8 +15,6 @@ export XSID
 declare -A pidbyid cmdbypid
 mkdir $logdir
 
-export new_core=1
-
 cd `dirname $0`
 
 if [ $IN_CHROOT ]
@@ -32,12 +30,6 @@ fi
 
 to_loop=$PIPEDIR/to_loop
 from_loop=$PIPEDIR/from_loop
-
-cfg_ptrn="^main:set_config:"	# Now set in .pl. Export?
-
-
-readconfig2="s/$cfg_ptrn//; \$conf=\$_; print \"evaling:\$conf\\n\"; eval \$conf;"
-
 
 exec {stdout}>&1
 exec {stdin}<&0
@@ -80,16 +72,9 @@ add_module() {
 
 init_cmds()
 {
-	if [ $new_core ]
-	then
 		add_module "mod" "$BINDIR/mod"
 		add_module "user" "$BINDIR/user"
-	else
-	#	echo "main:add:mod"
-	#	echo "main:add:user"
-		echo "main:set_config:`mkptrn_pl`"
-		echo "mod:set_io:$stdin:$stdout"
-	fi
+		#echo "mod:set_io:$stdin:$stdout"
 }
 
 mkpipe()
@@ -98,84 +83,21 @@ mkpipe()
 	[ ! -p "$PIPEDIR/to_loop_$1" ] && mkfifo "$PIPEDIR/to_loop_$1" 
 }
 
-mktask()
-{
-	local cmd_id="$1"
-	local cmd="$2"
-
-	mkpipe $cmd_id
-
-	$cmd <$PIPEDIR/$cmd_id >$PIPEDIR/to_loop_$cmd_id 2>$logdir/$cmd_id &
-
-	pidbyid[$cmd_id]=$!
-	cmdbyid[$cmd_id]=$cmd
-
-	for ((i=0; 1; i++))
-	do
-		[ -z "${pattern[i]}" ] && pattern[i]=$1 && break 
-	done
-}
-
-mkptrn_pl()
-{
-	for (( i=0; i<${#pattern[@]}; i++ ))
-	do
-		echo -n 'open '"${pattern[i]}"', ">'"$PIPEDIR"'/'"${pattern[i]}"'"; '
-		echo -n 'open in_'"${pattern[i]}"', "<'"$PIPEDIR"'/'"to_loop_${pattern[i]}"'"; '
-		echo -n 'addfd \*in_'"${pattern[i]}"'; '
-	done
-	#echo -n 'while(<STDIN>){ '
-	echo -n 'while (getln) { '
-	#echo -n 'printf DEBUG "%0.3f $_", Time::HiRes::time-$^T; flush DEBUG; '
-	echo -n 'llog; '
-	for (( i=0; i<${#pattern[@]}; i++ ))
-	do
-		p="${pattern[i]}"
-		echo -n "/^$p:/ && do { print $p; flush $p }; "
-	done
-	echo -n '/^main:get_config:/ && print ( (/^main:get_config:(.*)/), ":conf=$conf\n" ) ; '
-#	echo -n "/^main:quit/ && do { on_exit; kill 'KILL', -getpgrp() }; "
-
-	echo -n "/^main:set_config/ && last ; "
-	echo -n '}; '
-	echo -n "$readconfig2"
-}
-
 mkpipe "${to_loop##*/}"
 mkpipe "${from_loop##*/}"
 
 echo to_loop
 
-echo logdir=$logdir
-echo `pwd`
-
-#perl -e 'use v5.10;
-#use IO::Handle;
-#use Time::HiRes;
-#print "hi\n";' >/dev/null
+# echo logdir=$logdir
+# echo `pwd`
 
 
 linebufferedcat <$to_loop >$from_loop &
 
 export stdin stdout
 
-#{
-if [ $new_core ]
-then
-	:
-	#add_module "mod" "$BINDIR/mod"
-	#add_module "user" "$BINDIR/user"
-else
-	mktask "mod" "$BINDIR/mod"
-	mktask "user" "$BINDIR/user"
-fi
-#} >$to_loop
-
-
 { init_cmds; cat <$from_loop; } |  # tee log/bad1-$$ | # tee  >(cat >&$stdout) |
 ./core >&$to_loop
-
-# perl -e "$init$poll$readconfig1$readconfig2" >&$to_loop
 
 #wait ${pidbyid[mod]} 
 echo wait

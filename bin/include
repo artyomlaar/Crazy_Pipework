@@ -54,7 +54,7 @@ read_key()
 export -f read_key
 read_arrow()
 {
-	read_key &&
+	read_key || return
 	local mod_key=$1
 	if [ "_$KEY" = _D ]
 	then
@@ -70,7 +70,7 @@ read_arrow()
 		CTRL_KEY="$mod_key+Right"
 	fi
 }
-
+export -f read_arrow
 CTRL_KEY=""
 
 read_ctrl_key()
@@ -91,6 +91,12 @@ read_ctrl_key()
 		elif [ "_$KEY" = _C ]
 		then
 			CTRL_KEY="Right"
+		elif [ "_$KEY" = _H ]
+		then
+			CTRL_KEY="Home"
+		elif [ "_$KEY" = _F ]
+		then
+			CTRL_KEY="End"
 		elif [ "_$KEY" = _3 ]
 		then
 			read_key && [ "_$KEY" = _~ ] &&
@@ -105,14 +111,15 @@ read_ctrl_key()
 			CTRL_KEY="PageDown"
 		elif [ "_$KEY" = _1 ]
 		then
-			read_key && [ "_$KEY" = "_;" ] && read_key &&
-			if [ "_$KEY" = _5 ]
-			then
-				read_arrow "Ctrl"
-			elif [ "_$KEY" = _3 ]
-			then
-				read_arrow "Alt"
-			fi
+			read_key && [ "_$KEY" = "_;" ] && read_key && {
+				if [ "_$KEY" = _5 ]
+				then
+					read_arrow "Ctrl"
+				elif [ "_$KEY" = _3 ]
+				then
+					read_arrow "Alt"
+				fi
+			}
 		fi
 	elif [ "$KEY" = "O" ]
 	then
@@ -207,3 +214,33 @@ wait_flush() {
 	done
 }
 export -f wait_flush
+
+edit_variable() {
+	local var_to_set=$1
+	local text="$2"
+	{
+		if (($# == 2))
+		then
+			declare -g $var_to_set="$(
+				./edit_variable "$text"
+			)"
+		else
+			./edit_variable "$1"
+		fi
+	} 3>&1
+}
+export -f edit_variable
+
+get_text_data() {
+	local key=$1
+	local pattern="$2"
+	perl -e '
+		for (<>) {
+			if (s/^'"$key"'\s*('"$pattern"')\s*/\1/) {
+				print;
+				last;
+			}
+		}
+	'
+}
+export -f get_text_data

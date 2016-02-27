@@ -4,33 +4,30 @@ cd `dirname $0`
 
 # From env.
 board=${1-/}
-export board
 dir_board=$board
 board=$board/_/
 
 clear=$'\x1b[0m\x1b[H\x1b[2J'
 postcount=board/$board/post_count
-boardname="$(cat board/$board/board_name)"
+board_title="$(cat board/$board/board_title)"
 echo "out:print:$clear"
-
-mk_thread()
-{
-	THREADF=tmp/${XSID}-post
-	THREAD_F=$THREADF consolemode ./post
-	get=$(cat $postcount)
-	echo $((++get)) >$postcount
-	TARGET=board/$board/$get
-	cat $THREADF >board/$board/$get
-}
 
 view_board()
 {
-	echo -e "out:printl:\e[2K    $dir_board - $boardname"
+	echo -e "out:printl:\e[2K    $dir_board - $board_title"
 
 	for i in `ls -t board/$board/[0-9]*`
 	do
 		short=1 threadtail=5 ./show_thread $i
 	done
+}
+
+get_current_post_id() {
+	local sig="out:printc:$td$td-$td-$td $td:$td.*thread_"
+	c_thread=$(
+		head -n1 <<<"$1" | 
+		perl -p -e "s/^$sig(\d+).*/\1/ or exit 1"
+	)
 }
 
 refresh_board()
@@ -71,29 +68,71 @@ print_thread()
 	echo "$scr"
 	echo -e "out:print:\e[$((rows));1H\e[2K\e[Gw - up; s - down; n - new thread"
 	td="[0-9]\{2\}"
+	td="\d{2}"
 	if [ "$((curend-1))" = "$rows" ]
 	then
 		echo "out:print:; r - sub-boards"
 	fi
-	head -n1 <<<"$prs_scr" | 
-		grep -q "^out:printc:$td$td-$td-$td $td:$td.*thread_" &&
-		{
-			c_thread=$( head -n1 <<<"$prs_scr" | 
-				sed "s/^out:printc:$td$td-$td-$td $td:$td.*thread_\([0-9]\+\).*/\1/" )
 
-			echo "out:print:; r - reply"
-		}
+	if get_current_post_id "$prs_scr"
+        then
+                echo "out:print:; r - reply"
+	fi
+	
 	oldpos=$1
 }
 
-refresh_board
+check_password() {
+	local real_password="$(cat board/$board/admin_password)" 
+	local prompt=$'Admin Password: '
+	local p="[a-z0-9_]+"
 
+	CURS_POS=16 edit_variable res "$prompt"
+	password="$(get_text_data "Admin Password:" "$p" <<<"$res")"
 
-size=$(stty size <&$stdin)
-rows=${size% *}
-prows=$((rows-1))
-curend=$((rows+1))
-print_thread $curend
+	# Exit status:
+	[ "$password" = "$real_password" ]
+}
+
+edit_board() {
+	local name="$(cat board/$board/board_name)" 
+	local title="$(cat board/$board/board_title)" 
+	local password="$(cat board/$board/admin_password)" 
+        local prompt="	Edit Board
+Board name(read-only): $name
+Board title: $title
+Admin Password: $password
+
+	Delete:
+Delete thread(number):
+Delete post(number):
+Delete whole thread(yes/no):"
+        local p="[a-z0-9_]+"
+        CURS_POS=35 edit_variable res "$prompt"
+
+        password="$(get_text_data "Admin Password:" "$p" <<<"$res")"
+        title="$(get_text_data "Board title:" ".*" <<<"$res")"
+
+        if [ "$title" ]
+        then
+                echo "$title" >board/$board/board_title
+	fi
+
+        if [ "$password" ]
+        then
+		echo "$password" >board/$board/admin_password
+        fi
+}
+
+init() {
+	refresh_board
+
+	size=$(stty size <&$stdin)
+	rows=${size% *}
+	prows=$((rows-1))
+	curend=$((rows+1))
+	print_thread $curend
+}
 
 proc_cmd()
 {
@@ -125,25 +164,24 @@ proc_cmd()
 				./view_sub_boards $dir_board
 			elif [ "$c_thread" ]
 			then
-				# THREAD=$c_thread ./view_thread
-
-				# board=$board \
-				# ./view_thread $c_thread 
-
-				./view_thread_one $board $c_thread 
+				./view_thread $board $c_thread 
 				
 				refresh_board
 			fi
 		elif [[ $k == n ]]
 		then
-			#mk_thread
-			board=$board \
-			./post_menu
+			./post_menu $board
 			refresh_board
+		elif [[ $k == a ]]
+		then
+			if check_password
+			then
+				edit_board
+			fi
 		fi	
 	fi
 	print_thread $curend
 
 }
-
+init
 while IFS= read -r cmd; do proc_cmd $cmd; done

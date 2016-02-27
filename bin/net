@@ -5,12 +5,12 @@ declare -A group
 
 sys_net_join()				# args: group, pgid_of_sender
 {
-	[[ "${group["$1"]}" =~ (^| )$2($| ) ]] ||
-	{
+	if ! [[ "${group["$1"]}" =~ (^| )$2($| ) ]]
+	then
 		group["$1"]+=" $2"
 		echo "net:rejoin:$1"
 		echo "${mod_by_group[$1]}:net:new:$2"
-	}
+	fi
 }
 
 sys_net_leave()				# args: group, pgid_of_sender
@@ -38,11 +38,11 @@ rejoin()				# args: group, pgid_of_sender
 
 sys_net_rejoin()				# args: group, pgid_of_sender
 {
-	[[ "${group["$1"]}" =~ (^| )$2($| ) ]] ||
-	{
+	if ! [[ "${group["$1"]}" =~ (^| )$2($| ) ]]
+	then
 		group["$1"]+=" $2"
 		echo "${mod_by_group[$1]}:net:new:$2"
-	}
+	fi
 }
 
 net_leave()				# args: group

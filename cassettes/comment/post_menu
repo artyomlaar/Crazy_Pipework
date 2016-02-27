@@ -1,6 +1,9 @@
 #!/bin/bash
 #cd `dirname $0`
 
+board="$1"
+THREAD="$2"
+c_post="$3"
 min=1
 a=1
 bgcolor=${menu_bg-4}
@@ -21,12 +24,9 @@ rows=`stty size <&$stdin | cut -d\  -f1`
 editmsg="This is a beta version. Because of the bugs, YOUR POST may be LOST.
 SAVE your posts LOCALLY!"
 
-#THREAD_F=board/$board/$THREAD
-THREAD_F=../comment/board/$board/$THREAD
+TARGET=../comment/board/$board/$THREAD
 POST=./tmp/$XSID-text
 #PIC=./tmp/$XSID-pic
-TARGET=$THREAD_F
-export THREAD_F POST TARGET
 #declare -A addit_text  
 
 game_from_id()
@@ -150,7 +150,7 @@ drawmenu()
 
 get_message_field()
 {
-	sed -n "$(($1+1))s/\([^@]*@\)\{$2\}\([^@]*\).*/\2/p" <$THREAD_F
+	sed -n "$(($1+1))s/\([^@]*@\)\{$2\}\([^@]*\).*/\2/p" <$TARGET
 }
 
 get_post()
@@ -304,6 +304,7 @@ choose()
 #	echo out:print:11=$1=11
 	case "$1" in
 	p) 
+		POST=$POST \
 		SAVE_POS=1 \
 		EDIT_MSG=$editmsg readlines
 		;;
@@ -320,9 +321,9 @@ choose()
 
 		if [ -e "`get_path $FILE`" ]
 		then
-			FILE=$FILE ./submit
+			./submit $TARGET $POST $FILE
 		else
-			FILE='' ./submit
+			./submit $TARGET $POST ""
 		fi
 
 		rm_temp $fname $ext

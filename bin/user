@@ -105,7 +105,7 @@ proc_cmd()
 	fi
 }
 
-echo -e "mod:use:in&&out"
+echo -e "mod:use:in && out"
 
 while read cmd; do proc_cmd $cmd; done
 

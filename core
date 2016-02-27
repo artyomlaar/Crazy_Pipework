@@ -165,10 +165,12 @@ addfd \*STDIN;
 
 # Default config. Meant to work with the subs.
 
+# This is from the very top of the loop below. You can't comment in there.
+#		print DEBUG "debug:input comand: $_\n"; flush DEBUG;
+
 $def_config = q{
 
 	while (getln) { 
-		print DEBUG "debug:input comand: $_\n"; flush DEBUG;
 		llog; 
 		if (/^([a-z0-9]+):/) {
 			if ($1 ~~  @modules) {

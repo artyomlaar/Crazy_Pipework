@@ -14,6 +14,22 @@ onexit()
 	: #echo -e "\e[?25h" # - SHOWS CURSOR
 }
 
+send_remote_cmds() {
+	perl -e '$|++;
+		$wait_for_end='$1';
+		while (<>) {
+			if ($wait_for_end and
+				/^curses:set_new_output:.*/) {
+				exit
+			}
+			s/^curses:/\x01curses:/;
+			s/$/\x02/;
+			chomp;
+			print
+		}
+	'
+}
+
 proc_cmd()
 {
 	if [[ $1 =~ ^curses:init ]]
@@ -22,8 +38,8 @@ proc_cmd()
 		wait_for curses:stdout= stdout
 		init_srv >&$stdout
 		echo "mod:ready:curses"
-		perl -e '$|++; while(<>){ if (/^curses:set_new_output:.*/){ exit }; s/^curses:/\x01curses:/; s/$/\x02/; chomp; print }' >&$stdout
-		perl -e '$|++; while(<>){ s/^curses:/\x01curses:/; s/$/\x02/; chomp; print }' >$pdir/all_output
+		send_remote_cmds 1 >&$stdout
+		send_remote_cmds 0 >$pdir/all_output
 	fi
 }
 

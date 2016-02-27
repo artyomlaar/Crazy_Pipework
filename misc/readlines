@@ -1,6 +1,8 @@
 #!/bin/bash
 
 echo -e "out:print:\e[H\e[2J"
+# ENV: CURS_POS, ...
+curpos=CURS_POS
 
 echo "$EDIT_MSG" | sed 's/^/out:printc:/'
 
@@ -100,13 +102,14 @@ kill_line()
 ctrl_key()
 {
 	read_ctrl_key
+	echo "readlines:ctrl:$CTRL_KEY"
 	case "$CTRL_KEY" in
 		(Up)	line_up ;;
 		(Down)	line_down ;;
 		(Left)	(((curpos--) || (curpos=0))); set_real_ln_pos ;;
 		(Right)	((curpos<len ? curpos++ : curpos)); set_real_ln_pos ;;
-		(Home)	curpos=0 ;;
-		(End)	curpos=len ;;
+		(Home)	curpos=0; set_real_ln_pos ;;
+		(End)	curpos=$len; set_real_ln_pos ;;
 		(Delete)	set_vars "" 1 ;;
 	esac
 }
@@ -171,7 +174,14 @@ do
 		kill_line
 		a=""
 		set_vars
-	elif [ "$a" = $'\r' -a "$SINGLE_LINE" ]
+	elif [ "$a" = "" ]
+	then
+		a=$'\r'
+		set_vars
+		((curpos++))
+		set_real_ln_pos
+	# elif [ "$a" = $'\r' -a "$SINGLE_LINE" ]
+	elif [ "$a" = "" -a "$SINGLE_LINE" ]
 	then
 		on_exit
 	else

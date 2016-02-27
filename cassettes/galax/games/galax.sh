@@ -219,7 +219,7 @@ proc_cmd()
 	fi
 }
 
-echo "mod:use:out&&in&&net&&file&&curses"
+echo "mod:use:out && in && net && file && curses"
 
 while read command; do proc_cmd "$command"; done 
 

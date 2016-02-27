@@ -55,15 +55,12 @@ rm_pipes()
 make_pipes
 
 INAME=client
-jdev=/dev/input/js0
-muspid=
-p1=p1
 main_menu=( "Main Menu" ""  "Resume" "leave_menu" "Options" "enter_menu opt_menu" "Quit" "onexit; exit" )
 opt_menu=( "Options" "main_menu"  "Back" "leave_menu" "12Options" "enter_menu" "3Quit" "exit" "XSID=$XSID" "echo debug" )
 menu=( "${main_menu[@]}" )
 menu_choice=2
-declare -A filename
 
+# WHAT'S THAT:
 if uname | grep -q Linux
 then
 	#TODO: use splice syscall
@@ -140,46 +137,11 @@ menu_command()
 	esac
 }
 
-obj_new ()
-{
-	for e in `eval 'echo ${!'$1'[@]}'`
-	do 
-		eval 'echo -n [$e]="${'$1'[$e]}"' |
-		sed 's/\([^\]\) /\1\\ /g'
-		echo -n " "
-	done
-}
-
-declare -A mikmod_class=( 
-	[load]="mikmod -hqmixer -r4 -i -o8m -f8000"
-	[ipipe]="$pipedir/clmupi"
-	[onstart]="9r "
-	[pause]=" "
-)
-midi_class=( [1]=" " )
-
-eval "declare -A obj_mikmod=(`obj_new mikmod_class`)"
-
-start_srv()
-{
-	nc -lp $port -e ./looped_pipe2 &
-}
-
 onstart()
 {
 	stty -icanon <&$savedstdin
 	stty -echo <&$savedstdin
 	#stty -tostop
-}
-
-file_is_cached()
-{
-	return 1
-}
-
-file_is_accepted()
-{
-	return 0
 }
 
 start_input()
@@ -202,18 +164,6 @@ onexit()
 	rm_pipes
 	echo -ne "\x1b[?25h" # make cursor visible
 } 2>/dev/null
-startmusic()
-{
-	local handle="`cut -d: -f1 <<<"$1"`"
-	local   play="`cut -d: -f2 <<<"$1"`"
-	
-	${obj_mikmod[load]} "${filename[$handle]}" <${obj_mikmod[ipipe]} &>/dev/null &  
-	muspid=$!
-	if [ "$play" = "pause" ]
-	then
-		echo -n "${obj_mikmod[onstart]}" > ${obj_mikmod[ipipe]}
-	fi
-}
 
 mkpipe () 
 { 
@@ -231,65 +181,6 @@ curses_start()
 {
 	[ "$curses_on" ] && return
 	curses_on=yes
-}
-
-prockey()
-{
-	case $2:$3 in
-	8001:0201) echo user:key=w >&${pipe[to_serv]} ;; # up
-	8001:0200) echo user:key=a >&${pipe[to_serv]} ;; # left
-	7FFF:0201) echo user:key=s >&${pipe[to_serv]} ;; # down
-	7FFF:0200) echo user:key=d >&${pipe[to_serv]} ;; # right
-
-	0001:0100) echo user:key=1 >&${pipe[to_serv]} ;;
-	0001:0101) echo user:key=6 >&${pipe[to_serv]} ;;
-	0001:0105) echo user:key=i >&${pipe[to_serv]} ;;
-	0001:0106) echo user:key=q >&${pipe[to_serv]} ;;
-	esac
-}
-
-readkeys()
-{
-	mkpipe p1
-	head -c96 > /dev/null # |read -t.01 -N96 # skip config info
-	#FIXME 96 is a magic number that only works for my joystick.
-
-	while [ -r $jdev ] 
-	do
-		hexdump -n8 -v -e '1/4 "%08X " 1/2 "%04X " 2/1 "%02X" "\n"'>&$p1
-		read -t 1 a b c <&$p1
-		prockey $a $b $c
-	done
-	exec $p1>&-
-	exec $p1<&-
-	rm p1
-}
-
-joymain()
-{
-	while :
-	do
-		readkeys <$jdev # && break;
-		sleep 20
-	done
-}
-
-recv_file()   # args: handle, count
-{
-	local handle="`cut -d: -f1 <<<"$1"`"
-	local  count="`cut -d: -f2 <<<"$1"`"
-	local lfilename="$clidir/cache/${sha1[$handle]}.${ext[$handle]}" 
-	# FIXME: check vars -- security breach
-
-	filename[$handle]="$lfilename"
-
-	if ! file_is_accepted "$handle"
-	then
-		lfilename=/dev/null
-	fi
-	dd bs=1 of="$lfilename" skip=0 count="$size" 2>/dev/null
-	# or explicitly set where the non-command output 
-	# goes to, e.g. out:stdout out:music.mod
 }
 
 file_offer() # args: handle, extension, size, sha1
@@ -361,60 +252,6 @@ proc_cmd()
 	kill $muspid  # check it out dude, we're in a subshell!!1
 }
 
-installed()
-{
-	if [ -d "$clidir" ] 
-	then 
-		return 0
-	else
-		return 1
-	fi
-}
-
-initjs()
-{
-	if [ -r $jdev ]
-	then
-		:
-	else
-		jdev=/dev/null
-	fi
-}
-
-install_client()
-{
-	mkdir -m 0700 -p "$clidir/bin" "$pipedir" "$clidir/cache" "$clidir/download" 
-#	mkfifo ${pipe[to_serv]}
-	mkfifo ${pipe[from_serv]}
-	mkfifo ${pipe[clmu]}
-	mkfifo ${pipe[curses]}
-	mkfifo ${pipe[resize]}
-}
-
-askinst()
-{
-		echo You need to install the client first
-		echo Install the client to $clidir? [y/n]
-		while read -n1
-		do
-			case $REPLY in
-				[yY]) install; break;;
-				[nN]) exit 0;;
-			esac
-		done
-		exit
-}
-
-checkinstalled()
-{
-	if installed 
-	then
-		return
-	else
-		install_client
-	fi
-}
-
 if [ $NULL_CLIENT ]
 then
 	#echo "out:telnet_set_raw"
@@ -426,12 +263,9 @@ then
 	pipe[from_serv]="${reply%:*}"
 	exec >&"${reply#*:}"
 	exec 2>&"${reply#*:}"
-fi
-
-checkinstalled
-
-if [ ! $NULL_CLIENT ] 
-then 
+else
+	source bin/real_client
+	checkinstalled
 	initjs
 	joymain &
 	joypid=$!

@@ -46,14 +46,11 @@ proc_cmd()
 
 	elif [[ $1 =~ ^out:printl:.* ]]
 	then
-		# echo "${1#"out:printl:"}" >&$stdout
 		echo "${1#"out:printl:"}"$'\xd' >&$stdout
 
 	elif [[ $1 =~ ^out:printc:.* ]]
 	then
 		seq="`echo -en "\e[2K\e[G"`"
-#		seq="`echo -en "\e[G\e[2K"`"
-		# echo "$seq${1#"out:printc:"}" >&$stdout
 		echo "$seq${1#"out:printc:"}"$'\xd' >&$stdout
 
 	elif [[ $1 =~ ^out:printe:.* ]]

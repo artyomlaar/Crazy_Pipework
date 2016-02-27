@@ -3,25 +3,16 @@
 cd `dirname $0`
 
 # From env.
-board=$board
 board=${1-/}
 
 clear=$'\x1b[0m\x1b[H\x1b[2J'
-postcount=board/$board/postcount
 echo "out:print:$clear"
 
 color_green=$'\e[32m'
 color_red=$'\e[31m'
 color_blue=$'\e[34m'
 color_default=$'\e[39m'
-max_board_depth=2
-
-make_board() {
-	local nbd=board_$thrlen
-	mkdir board/$board/$nbd
-	mkdir board/$board/$nbd/_
-	echo $nbd >board/$board/$nbd/_/board_name
-}
+max_board_depth=8
 
 get_current_board() {
 	local cmd="out:printc:\e\[3.m"
@@ -47,12 +38,12 @@ current_board_depth() {
 view_board()
 {
 	local board_path name threads
-	echo -e "out:printc:\tSub-boards of $board: depth=$(current_board_depth)"
+	echo -e "out:printc:\tSub-boards of $board:"
 	ls -dt board/$board/*/_/ |
 	while read b
 	do
 		board_path=$(sed -E "s|.*(/[^/]+/)/*_/*|\1|" <<<"$b")
-		name=$(cat $b/board_name)
+		name=$(cat $b/board_title)
 		threads=$(cat $b/post_count)
 		echo -e "out:printc:$color_red$board_path$color_default - $name\t$color_green(${threads:-0} Threads)$color_default"
 	done
@@ -74,7 +65,6 @@ refresh_board()
 
 print_thread()
 {
-	c_thread=""
 	echo -e "out:print:\e[H\e[0m"
 	end=$1
 	if ((end == oldpos+1))
@@ -102,35 +92,54 @@ print_thread()
 		echo "out:print:; n - new board"
 	fi
 
-	td="[0-9]\{2\}"
-
-	# if [ "$((curend-1))" = "$rows" ]
-	# then
-	#	echo "out:print:; r - sub-boards"
-	# fi
-
 	if get_current_board "$prs_scr"
 	then
 			echo "out:print:; r - enter"
 	fi
 	
-	# echo "out:print:cb=$cur_board"
-
 	oldpos=$1
 }
 
-refresh_board
+init() {
+	refresh_board
 
+	size=$(stty size <&$stdin)
+	rows=${size% *}
+	prows=$((rows-1))
+	curend=$((rows+1))
+	if ((`current_board_depth` + 1 <= max_board_depth))
+	then
+		sub_boards_allowed=1
+	fi
+	print_thread $curend
+}
 
-size=$(stty size <&$stdin)
-rows=${size% *}
-prows=$((rows-1))
-curend=$((rows+1))
-if ((`current_board_depth` + 1 <= max_board_depth))
-then
-	sub_boards_allowed=1
-fi
-print_thread $curend
+make_board() {
+	local name password
+	local prompt=$'Board name: \nPassword: \nBoard title: '
+	local p="[a-z0-9_]+"
+	CURS_POS=12 edit_variable res "$prompt"
+
+	name="$(get_text_data "Board name:" "$p" <<<"$res")"
+	password="$(get_text_data "Password:" "$p" <<<"$res")"
+	title="$(get_text_data "Board title:" ".*" <<<"$res")"
+
+	if ! [ "$name" ] || [ "$name" == "_" ]
+	then
+		edit_variable $'\tFail!\n Board name not set.'
+	elif ! [ "$password" ]
+	then
+		edit_variable $'\tFail!\n Board Admin password not set.'
+	else
+		edit_variable $'\tSuccess!'
+
+		mkdir board/$board/$name
+		mkdir board/$board/$name/_
+		echo "$name" >board/$board/$name/_/board_name
+		echo "$password" >board/$board/$name/_/admin_password
+		echo "$title" >board/$board/$name/_/board_title
+	fi
+}
 
 proc_cmd()
 {
@@ -157,21 +166,7 @@ proc_cmd()
 			echo "out:print:$clear"
 		elif [[ $k == r ]]
 		then
-			if [ "$((curend-1))" = "$rows" ]
-			then
-				echo "out:printc:subboards"
-				read
-			elif [ "$c_thread" ]
-			then
-				# THREAD=$c_thread ./view_thread
-
-				# board=$board \
-				# ./view_thread $c_thread 
-
-				./view_thread_one $board $c_thread 
-				
-				refresh_board
-			elif [ "$cur_board" ]
+			if [ "$cur_board" ]
 			then
 				./view_board ${board%/}$cur_board
 				# curend=$((rows+1))
@@ -186,5 +181,5 @@ proc_cmd()
 	print_thread $curend
 
 }
-
+init
 while IFS= read -r cmd; do proc_cmd $cmd; done
