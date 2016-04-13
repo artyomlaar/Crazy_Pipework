@@ -82,9 +82,13 @@ proc_cmd()
 		echo -ne "\e[6n" >&$stdout
 	elif [[ $1 =~ ^out:init ]]
 	then
-		echo "mod:get_stdout:out"
-		wait_for out:stdout= stdout
-		echo debug:out:stdout=$stdout
+		# echo "mod:get_stdout:out"
+		# wait_for out:stdout= stdout
+		# echo "debug mod:get_stdout:out"
+
+		#stdout=$(request out mod get_stdout)
+		stdout=$(request mod get_stdout)
+		# echo debug:out:stdout=$stdout >&$stdout
 		init_srv 
 		echo "mod:ready:out"
 	fi

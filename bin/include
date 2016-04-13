@@ -23,6 +23,42 @@ wait_for()
 }
 export -f wait_for
 
+request() {
+	if (($# == 3))
+	then
+		local from="$1"
+		shift
+	else
+		local from="$MOD_NAME"
+	fi
+
+	local to="$1"
+	local request="$2"
+	# local max_wait="$3"
+	local read saved
+
+	from_depth=$(perl -e '$_="'$from'"; print tr/://d + 1')
+	to_depth=$(perl -e '$_="'$to'"; print tr/://d + 1')
+	from_tail=$(perl -e '$_="'$from'"; /([^:]+)$/; print $1')
+	wait_ptrn="$from_tail:return:$to_depth:$to:"
+
+	echo "$to:get:$from_depth:$from:$request" >&$MOD_STDOUT
+
+	# TODO: Start a kill timer with max_wait sec, save its pid,
+	# kill one of them.
+	# echo ptrn = $wait_ptrn >&$stdout
+
+	while IFS= read -r read
+	do
+		[[ "$read" = "$wait_ptrn"* ]] && break
+		saved+="$read"$'\n'
+	done
+
+	echo -n "$saved" >&$MOD_STDOUT
+	echo "${read#$wait_ptrn}"
+}
+export -f request
+
 rm_ws()
 {
 	tr -d ' \t' <<<"$1"

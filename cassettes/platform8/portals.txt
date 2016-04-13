@@ -1,0 +1,5 @@
+level_1/6 -> level_1/2
+level_1/2 -> level_1/7
+level_1/8 -> level_1/6
+level_1/1 -> level_1_coins/1
+level_1_coins/2 -> level_1/1

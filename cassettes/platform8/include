@@ -1,0 +1,92 @@
+
+print_log () {
+	sed s/^/out:printc:/ < ../../$logdir/user;
+}
+export -f print_log
+
+read_key () {
+	while read cmd
+	do
+		if [[ $cmd = user:key=q ]]
+		then
+			break 2
+		elif [[ $cmd = user:key* ]]
+		then
+			break
+		fi
+	done
+}
+export -f read_key
+
+show_error () {
+	echo out:print:`clear`error=$error;
+	read_key
+	print_log
+	read_key
+}
+export -f show_error
+
+get_exit_status () {
+	local state_file="$1"
+	perl -e '
+		open STATE, "<'"$state_file"'";
+		my $code = join " ", <STATE>;
+		$code =~ s/\n//g;
+		close STATE;
+		eval($code);
+		print "$status\n";
+	'
+}
+export -f get_exit_status
+
+set_status () {
+	local new_status="$1"
+	sed -i '/\$status/'"s/= .*/= '$new_status';/" $STATE
+}
+export -f set_status
+
+look_up_dest () {
+	perl -e '
+		$depart = "'"$1"'";
+
+		while (<>) {
+			s/#.*//;	# Skip comments.
+
+			if (/^\s*$depart ?-> ?(\S+)/) {
+				print "$1\n";
+				exit;
+			}
+		}
+	' < portals.txt
+}
+export -f look_up_dest
+
+teleport () {
+	local depart=$1
+	local dest
+
+	dest=$(look_up_dest $depart)
+		echo "$depart : $dest" >> port.dbg
+	level=${dest%/*}
+	out_portal=${dest#*/}
+
+		echo "$level $out_portal $dest" >> port.dbg
+	if [ ! -d "$level" ] || [ ! "$out_portal" ] || [[ ! $dest =~ .+/.+ ]]
+	then
+		echo no portal >> port.dbg
+		dest=$depart
+		level=${dest%/*}
+		out_portal=${dest#*/}
+	fi
+	
+	STATE=/tmp/$$-state-$level
+	if [ ! -e $STATE ]
+	then
+		echo '$status = ' > $STATE
+		echo '$dont_spawn = 1;' >> $STATE
+	fi
+
+	set_status "Teleported to $out_portal"
+}
+export -f teleport
+

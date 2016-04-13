@@ -1,0 +1,9 @@
+#!/bin/bash
+
+cd $1
+cat compile_data/default.$TILE_SIZE.skin |
+while IFS=: read -r sprite_name file_name
+do
+	sprite_name="$(sed 's/\\/\\\\/g; s/&/\\&/g' <<<"$sprite_name")"
+	sed -E "s/\\$/$sprite_name/" -- "$file_name"
+done

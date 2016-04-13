@@ -1,0 +1,2 @@
+exec {MOD_STDOUT}>&1
+

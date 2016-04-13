@@ -1,0 +1,595 @@
+  
+no portal
+level_1/6 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/5 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : 
+  
+no portal
+level_1_coins/2 : 
+  
+no portal
+level_1_coins/2 : 
+  
+no portal
+level_1_coins/2 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : 
+  
+no portal
+level_1_coins/2 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/ : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/7 : 
+  
+no portal
+level_1/7 : 
+  
+no portal
+level_1/7 : 
+  
+no portal
+level_1/7 : 
+  
+no portal
+level_1/7 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/3 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/5 : 
+  
+no portal
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/3 : 
+  
+no portal
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/3 : 
+  
+no portal
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/6 : level_1/2
+level_1 2 level_1/2
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/1 : level_1_coins/1
+level_1_coins 1 level_1_coins/1
+level_1_coins/2 : level_1/1
+level_1 1 level_1/1
+level_1/2 : level_1/7
+level_1 7 level_1/7
+level_1/8 : level_1/6
+level_1 6 level_1/6
+level_1/4 : 
+  
+no portal

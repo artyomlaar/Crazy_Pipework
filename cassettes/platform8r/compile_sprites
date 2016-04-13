@@ -1,0 +1,10 @@
+#!/bin/bash
+
+cd level_1
+cat compile_data/default.8.skin |
+while IFS=: read -r sprite_name file_name
+do
+	sprite_name="$(sed 's/\\/\\\\/g; s/&/\\&/g' <<<"$sprite_name")"
+
+	sed -E "s/\\$/$sprite_name/" -- "$file_name"
+done

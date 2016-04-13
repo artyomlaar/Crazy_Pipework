@@ -1,0 +1,33 @@
+#!/bin/bash
+
+level=level_1
+STATE=/tmp/$$-state-$level
+
+export TILE_SIZE=8 STATE=$STATE
+
+source include
+
+parse_exit_status() {
+	local status
+	status="$(get_exit_status $STATE)"
+
+	if [[ $status =~ Teleporting\ from\ (.*) ]]
+	then
+		teleport $level/${BASH_REMATCH[1]}
+	fi
+}
+
+while true;
+do
+	compile_sprites $level > $level/sprites.crs
+#	cd level_1
+	platform $level
+	error=$?
+	rm $level/sprites.crs
+	cp $STATE ./state.txt
+	case $error in
+	0) rm $STATE; break ;;
+	1) parse_exit_status ;;
+	*) show_error ;;
+	esac
+done

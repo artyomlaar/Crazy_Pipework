@@ -8,6 +8,7 @@ import signal
 import time
 import random
 from distutils.version import LooseVersion, StrictVersion
+from os import environ
 
 ptrn1=re.compile(r'^pr:([^:]*):([^:]*):([^:]*)')
 ptrn2=re.compile(r'^ref')
@@ -72,8 +73,11 @@ OUTPUTFD=os.fdopen(3, 'w', 0)
 spr_group={}
 progbar={}
 progbarmax={}
-lowerhalf="\xe2\x96\x84"
 palette={}
+if environ['TERM'] == 'linux':
+	lowerhalf="m"
+else:
+	lowerhalf="\xe2\x96\x84"
 no_part_sprites=0#True
 
 for i in range(8): # TODO: add alpha support (color_id=-1)
@@ -161,7 +165,7 @@ def send_win_size():
 	(x,y)=get_user_coords(x, y)
 	# if curses.version < LooseVersion("2.2"): # Can't handle sprite parts.
 	if no_part_sprites:
-		x=x//16*16	# Tell user screen x, y are products of 16.
+		x=x//16*16	# Tell user screen x, y are multiples of 16.
 		y=y//16*16
 	output("user:resize:"+str(x)+":"+str(y)+"\n")
 	output("user:scr:resize:"+str(x)+":"+str(y)+"\n") # TODO !

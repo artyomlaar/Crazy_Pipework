@@ -1,9 +1,6 @@
 #!/bin/bash
 
 STATE=/tmp/state
-TILE_SIZE=16
-
-export TILE_SIZE STATE
 
 print_log () {
 	sed s/^/out:printc:/ < ../../$logdir/user;
@@ -31,11 +28,11 @@ show_error () {
 
 while true;
 do
-	compile_sprites level_1 > level_1/sprites.crs
-	TILE_SIZE=16 STATE=$STATE platform level_1
+	./compile_sprites > ./level_1/sprites.crs
+#	cd level_1
+	TILE_SIZE=8 STATE=$STATE platform level_1
 	error=$?
 	rm level_1/sprites.crs
-
 	case $error in
 	0) rm $STATE; break ;;
 	1) continue ;;
