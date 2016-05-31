@@ -13,7 +13,7 @@ parse_exit_status() {
 
 	if [[ $status =~ Teleporting\ from\ (.*) ]]
 	then
-		teleport $level/${BASH_REMATCH[1]}
+		teleport ${BASH_REMATCH[1]}
 	fi
 }
 

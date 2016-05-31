@@ -251,7 +251,7 @@ wait_flush() {
 }
 export -f wait_flush
 
-edit_variable() {
+edit_variable_old() {
 	local var_to_set=$1
 	local text="$2"
 	{
@@ -264,6 +264,14 @@ edit_variable() {
 			./edit_variable "$1"
 		fi
 	} 3>&1
+}
+export -f edit_variable_old
+
+edit_variable() {
+	local text="$1"
+	{
+	./edit_variable "$text" 
+	} 3>&$MOD_STDOUT
 }
 export -f edit_variable
 

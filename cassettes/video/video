@@ -1,0 +1,28 @@
+#!/bin/bash
+
+echo out:print:`clear`
+
+if [ "$TERM" == "linux" ]
+then
+	linux="-linux"
+else
+	linux=""
+fi
+
+rows=$(stty size <&$stdin | cut -d\  -f1)
+cols=$(stty size <&$stdin | cut -d\  -f2)
+
+h=53
+w=160
+
+if ((rows > h && cols > w))
+then
+	hi="-hi"
+else
+	hi=""
+fi
+
+./play_video final$hi$linux.txt >&$stdout
+# ./play_video final.txt | sed -u 's/^/out:printl:/' >&$stdout
+
+read

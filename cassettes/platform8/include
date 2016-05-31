@@ -4,6 +4,54 @@ print_log () {
 }
 export -f print_log
 
+copy_player () {
+	local from_world_state_file="$1"
+	local to_world_state_file="$2"
+
+	perl -e '
+		sub load_all {
+			open STATE, "<$_[0]";
+			my $code = join " ", <STATE>;
+			$code =~ s/\n//g;
+			close STATE;
+			eval($code);
+		}
+
+		sub save_all {
+			use Data::Dumper;
+
+			$result = Data::Dumper->Dump([\@objects], ["\*objects"]);
+			$result .= Data::Dumper->Dump([\%state], ["\*state"]);
+			$result .= Data::Dumper->Dump([$player_id], ["\*player_id"]);
+			$result .= Data::Dumper->Dump([$status], ["\*status"]);
+
+			open STATE, ">$_[0]";
+			print STATE $result;
+			close STATE;
+		}
+
+		load_all $ARGV[0];
+
+		@from_objects = @objects;
+		$from_player_id = $player_id;
+		$from_player = $from_objects[$from_player_id];
+
+		undef @objects;
+		undef %state;
+
+		load_all $ARGV[1];
+
+		@from_objects = @objects;
+		$player_id ||= 0;
+		$from_player->{id} = $player_id;
+		$objects[$player_id] = $from_player;
+
+		save_all $ARGV[1];
+
+	' "$from_world_state_file" "$to_world_state_file"
+}
+export -f copy_player
+
 read_key () {
 	while read cmd
 	do
@@ -41,7 +89,7 @@ export -f get_exit_status
 
 set_status () {
 	local new_status="$1"
-	sed -i '/\$status/'"s/= .*/= '$new_status';/" $STATE
+	sed -i '/\$status/'"s|= .*|= '$new_status';|" $STATE
 }
 export -f set_status
 
@@ -67,26 +115,36 @@ teleport () {
 
 	dest=$(look_up_dest $depart)
 		echo "$depart : $dest" >> port.dbg
-	level=${dest%/*}
+	level=${dest%%/*}
 	out_portal=${dest#*/}
 
 		echo "$level $out_portal $dest" >> port.dbg
-	if [ ! -d "$level" ] || [ ! "$out_portal" ] || [[ ! $dest =~ .+/.+ ]]
+	if [ ! -d "$level" ] || [ ! "$out_portal" ] || [[ ! $dest =~ .+/.+/.+ ]]
 	then
 		echo no portal >> port.dbg
 		dest=$depart
-		level=${dest%/*}
+		level=${dest%%/*}
 		out_portal=${dest#*/}
+	else
+		echo success portal >> port.dbg
 	fi
 	
+	from_state=$STATE
 	STATE=/tmp/$$-state-$level
+
+	cp $from_state state_from.txt
+	cp $STATE state_to_old.txt
+	copy_player $from_state $STATE
+
 	if [ ! -e $STATE ]
 	then
 		echo '$status = ' > $STATE
 		echo '$dont_spawn = 1;' >> $STATE
 	fi
 
-	set_status "Teleported to $out_portal"
+	set_status "Teleported to $dest"
+	cp $STATE state_to_new.txt
+	echo set_status "Teleported to $dest" >> port.dbg
 }
 export -f teleport
 

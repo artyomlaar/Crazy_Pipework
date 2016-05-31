@@ -87,7 +87,7 @@ check_password() {
 	local prompt=$'Admin Password: '
 	local p="[a-z0-9_]+"
 
-	CURS_POS=16 edit_variable res "$prompt"
+	res=$(CURS_POS=16 edit_variable "$prompt")
 	password="$(get_text_data "Admin Password:" "$p" <<<"$res")"
 
 	# Exit status:
@@ -106,9 +106,10 @@ Admin Password: $password
 	Delete:
 Delete thread(number):
 Delete post(number):
-Delete whole thread(yes/no):"
+Delete whole thread(yes/no):
+"
         local p="[a-z0-9_]+"
-        CURS_POS=35 edit_variable res "$prompt"
+        res=$(CURS_POS=35 edit_variable "$prompt")
 
         password="$(get_text_data "Admin Password:" "$p" <<<"$res")"
         title="$(get_text_data "Board title:" ".*" <<<"$res")"

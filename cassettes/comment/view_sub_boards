@@ -118,7 +118,7 @@ make_board() {
 	local name password
 	local prompt=$'Board name: \nPassword: \nBoard title: '
 	local p="[a-z0-9_]+"
-	CURS_POS=12 edit_variable res "$prompt"
+	res=$(CURS_POS=12 edit_variable "$prompt")
 
 	name="$(get_text_data "Board name:" "$p" <<<"$res")"
 	password="$(get_text_data "Password:" "$p" <<<"$res")"

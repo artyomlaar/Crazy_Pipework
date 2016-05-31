@@ -2,7 +2,7 @@
 
 XSID=${XSID-$$}
 HOME=${HOME-/home/`whoami`} # home is unset when run from xinetd
-INSTALL_DIR="$(dirname $0)"
+INSTALL_DIR=$PWD	# "$(dirname $0)"
 PIPEDIR="${pdir-"`dirname $0`/pipe/$XSID"}" # it can be set from server.bash
 export ISPEED=120
 #export COREPID=$$

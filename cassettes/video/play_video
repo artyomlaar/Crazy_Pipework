@@ -1,0 +1,17 @@
+#!/usr/bin/perl
+#!/usr/bin/env perl
+
+use Time::HiRes usleep;
+$|++;
+open IN, "<$ARGV[0]";
+
+$SIG{INT} = sub { system "tput sgr0"; exit };
+
+while (<IN>) {
+	if (/^([0-9.]+)$/) {
+		usleep 1000000 * $1;
+	} else {
+		print;
+		flush STDOUT;
+	}
+}
